@@ -34,6 +34,7 @@ public function login(Request $request)
 
     return response()->json([
         'token' => $token,
+        'role' => $user->role,
         'user' => $user
     ]);
 }
