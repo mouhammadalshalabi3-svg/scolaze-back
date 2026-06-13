@@ -17,7 +17,7 @@ return new class extends Migration
 
             $table->text('description')->nullable();
 
-            $table->string('file_url');
+            $table->string('file_uri');
 
             $table->string('type');
 

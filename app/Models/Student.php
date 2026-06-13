@@ -53,6 +53,6 @@ class Student extends Model
 
     public function messages()
     {
-        return $this->hasMany(ParentMessage::class);
+        return $this->hasMany(  AdminMessage::class);
     }
 }

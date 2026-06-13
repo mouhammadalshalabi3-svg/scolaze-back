@@ -14,11 +14,13 @@ return new class extends Migration
         Schema::create('salaries', function (Blueprint $table) {
             $table->id();
             $table->integer('month');
+            $table->integer('year');
             $table->decimal('total_amount', 10, 2);
              $table->enum('paid_status', [
                 'pending',
                 'paid'
             ]);
+            
             $table->integer('completed_sessions');
             $table->decimal('price_per_session', 10, 2);
             $table->integer('working_days');

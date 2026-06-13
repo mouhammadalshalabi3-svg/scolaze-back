@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Homework extends Model
 {
         use HasFactory;
-
+ protected $table = 'homeworks';
     protected $fillable = [
         'title',
         'description',

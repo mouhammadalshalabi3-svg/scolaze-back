@@ -12,7 +12,7 @@ class LibraryItem extends Model
     protected $fillable = [
         'title',
         'description',
-        'file_url',
+        'file_uri',
         'type',
         'category_id',
         'grade_id'
