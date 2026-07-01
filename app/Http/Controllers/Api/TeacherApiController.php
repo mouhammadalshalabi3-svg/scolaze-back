@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Teacher;
 use App\Models\AdminMessage;
 use App\Models\Admin;
+use App\Services\NotificationService;
 class TeacherApiController extends Controller
 {
      public function index()
@@ -117,7 +118,7 @@ class TeacherApiController extends Controller
     $teacher = Teacher::findOrFail($teacher_id);
     $admin   = Admin::where('user_id', auth()->id())->firstOrFail();
 
-    \App\Models\AdminMessage::create([
+    AdminMessage::create([
         'title'      => $request->head,
         'message'    => $request->content,
         'is_read'    => false,
@@ -125,6 +126,7 @@ class TeacherApiController extends Controller
         'teacher_id' => $teacher->id,
         'parent_id'  => null,
     ]);
+    NotificationService::send($teacher->user_id, $request->head, $request->content, 'admin_message');
 
     return response()->json(['message' => 'تم إرسال الرسالة للأستاذ بنجاح']);
     }

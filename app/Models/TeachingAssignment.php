@@ -30,9 +30,9 @@ class TeachingAssignment extends Model
         return $this->belongsTo(Section::class);
     }
 
-    public function schedules()
+   public function periods()
     {
-        return $this->hasMany(Schedule::class);
+    return $this->hasMany(Period::class);
     }
 
     public function homeworks()

@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use App\Models\Admin;
+use App\Models\TeachingAssignment;
 use App\Models\Teacher;
 use App\Models\ParentModel;
 use App\Models\Student;
@@ -12,17 +13,19 @@ use App\Models\Grade;
 use App\Models\Section;
 use App\Models\Subject;
 use App\Models\Exam;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\LibraryCategory;
 use App\Models\Supervisor;
+use App\Models\Attendance;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
 class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
     public function run(): void
     {
-        // 1) يوزر الأدمن + صف admins المرتبط
+        // 1) يوزر الأدمن
         $adminUser = User::create([
             'username' => 'admin',
             'password' => bcrypt('password'),
@@ -37,7 +40,7 @@ class DatabaseSeeder extends Seeder
             'user_id'  => $adminUser->id,
         ]);
 
-        // 2) يوزر الأستاذ + صف teachers المرتبط
+        // 2) يوزر الأستاذ
         $teacherUser = User::create([
             'username' => 'teacher1',
             'password' => bcrypt('password'),
@@ -55,7 +58,7 @@ class DatabaseSeeder extends Seeder
             'user_id'     => $teacherUser->id,
         ]);
 
-        // 3) يوزر ولي الأمر + صف parents المرتبط
+        // 3) يوزر ولي الأمر
         $parentUser = User::create([
             'username' => 'parent1',
             'password' => bcrypt('password'),
@@ -86,7 +89,7 @@ class DatabaseSeeder extends Seeder
             'grade_id'         => $grade->id,
         ]);
 
-        // 5) يوزر الطالب + صف students المرتبط
+        // 5) يوزر الطالب
         $studentUser = User::create([
             'username' => 'student1',
             'password' => bcrypt('password'),
@@ -94,7 +97,7 @@ class DatabaseSeeder extends Seeder
             'status'   => true,
         ]);
 
-        Student::create([
+        $student = Student::create([
             'academic_number' => '2024001',
             'first_name'      => 'أحمد',
             'last_name'       => 'محمد',
@@ -121,11 +124,18 @@ class DatabaseSeeder extends Seeder
             'subject_id' => $subject->id,
         ]);
 
-          LibraryCategory::create([
+        // 7) فئة مكتبة
+        LibraryCategory::create([
             'name' => 'كتب',
         ]);
+        // 6b) ربط الأستاذ بالمادة والشعبة
+$assignment = TeachingAssignment::create([
+    'teacher_id' => 1, // محمود أحمد
+    'subject_id' => $subject->id,
+    'section_id' => $section->id,
+]);
 
-        // 8) يوزر مراقب (supervisor) + صف supervisors المرتبط
+        // 8) يوزر المراقب
         $supervisorUser = User::create([
             'username' => 'supervisor1',
             'password' => bcrypt('password'),
@@ -142,11 +152,11 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 9) سجل حضور تجريبي
-        \App\Models\Attendance::create([
+        Attendance::create([
             'attendance_date' => '2025-01-10',
             'status'          => 'present',
             'supervisor_id'   => $supervisor->id,
-            'student_id'      => $studentUser ? \App\Models\Student::first()->id : null,
+            'student_id'      => $student->id,
         ]);
     }
 }

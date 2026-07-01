@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Section extends Model
 {
         use HasFactory;
-
+protected $fillable = ['name', 'academic_year_id', 'grade_id'];
     public function grade()
     {
         return $this->belongsTo(Grade::class);

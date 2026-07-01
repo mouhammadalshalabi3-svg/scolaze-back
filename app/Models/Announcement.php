@@ -13,7 +13,8 @@ class Announcement extends Model
         'title',
         'content',
         'target_role',
-        'user_id'
+        'user_id',
+        'image',
     ];
 
     public $timestamps = false;

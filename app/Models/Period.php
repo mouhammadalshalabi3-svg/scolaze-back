@@ -8,16 +8,21 @@ class Period extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'period_number',
-        'start_time',
-        'end_time'
-    ];
+   protected $fillable = [
+    'period_number',
+    'start_time',
+    'end_time',
+    'day_of_week',
+    'status',
+    'assignment_id'
+];
 
-    public $timestamps = false;
-
-    public function schedules()
+public function assignment()
+{
+    return $this->belongsTo(TeachingAssignment::class);
+}
+public function periodAttendances()
     {
-        return $this->hasMany(Schedule::class);
+        return $this->hasMany(PeriodAttendance::class);
     }
 }

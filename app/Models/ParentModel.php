@@ -32,9 +32,8 @@ class ParentModel extends Model
     {
         return $this->hasMany(AbsenceJustification::class);
     }
-
-    public function messages()
+public function messages()
     {
-        return $this->hasMany(ParentMessage::class);
+        return $this->hasMany(AdminMessage::class, 'parent_id');
     }
 }

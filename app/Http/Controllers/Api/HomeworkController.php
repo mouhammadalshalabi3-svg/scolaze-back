@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Homework;
 use App\Models\HomeworkGrade;
 use App\Models\TeachingAssignment;
-
+use App\Services\NotificationService;
 class HomeworkController extends Controller
 {
 
@@ -35,6 +35,11 @@ class HomeworkController extends Controller
             'description'   => 'required|string',
             'due_date'      => 'required|date',
         ]);
+        $assignmentCheck = TeachingAssignment::findOrFail($request->assignment_id);
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $assignmentCheck->teacher_id !== $user->teacher?->id) {
+            return response()->json(['message' => 'غير مصرح لك بإضافة واجب لهاد المادة'], 403);
+        }
         $homework = Homework::create([
             'assignment_id' => $request->assignment_id,
             'title'         => $request->title,
@@ -42,6 +47,10 @@ class HomeworkController extends Controller
             'due_date'      => $request->due_date,
         ]);
 
+        $assignment = TeachingAssignment::with('section.students.user')->findOrFail($request->assignment_id);
+        $userIds = $assignment->section->students->pluck('user_id');
+
+        NotificationService::sendToMany($userIds, 'واجب جديد: ' . $homework->title, $homework->description, 'homework');
         return response()->json([
             'message'  => 'تم إضافة الواجب بنجاح',
             'homework' => [
@@ -59,7 +68,11 @@ class HomeworkController extends Controller
             'grades.*' => 'numeric|min:0',
         ]);
 
-        Homework::findOrFail($homework_id);
+        $homework = Homework::with('teachingAssignment')->findOrFail($homework_id);
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $homework->teachingAssignment->teacher_id !== $user->teacher?->id) {
+            return response()->json(['message' => 'غير مصرح لك برصد علامات هاد الواجب'], 403);
+        }
         foreach ($request->grades as $student_id => $mark) {
             HomeworkGrade::updateOrCreate(
                 [
@@ -68,7 +81,11 @@ class HomeworkController extends Controller
                 ],
                 ['mark' => $mark]
             );
-        }
+            $studentUserId = \App\Models\Student::find($student_id)?->user_id;
+                     if ($studentUserId) {
+                    NotificationService::send($studentUserId, 'علامة واجب جديدة', 'حصلت على علامة ' . $mark . ' بواجب جديد', 'homework_grade');
+    }
+                     }
 
         return response()->json([
             'message' => 'تم حفظ علامات الواجب بنجاح',
@@ -76,9 +93,13 @@ class HomeworkController extends Controller
         ]);
     }
 
-    public function destroy($homework_id)
+  public function destroy($homework_id)
     {
-        $homework = Homework::findOrFail($homework_id);
+        $homework = Homework::with('teachingAssignment')->findOrFail($homework_id);
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $homework->teachingAssignment->teacher_id !== $user->teacher?->id) {
+            return response()->json(['message' => 'غير مصرح لك بحذف هاد الواجب'], 403);
+        }
         $homework->delete();
 
         return response()->json(['message' => 'تم حذف الواجب بنجاح']);

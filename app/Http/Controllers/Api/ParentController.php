@@ -10,6 +10,14 @@ class ParentController extends Controller
 {
     public function store(Request $request)
 {
+    $request->validate([
+    'username'    => 'required|string|unique:users,username',
+    'password'    => 'required|string|min:6',
+    'father_name' => 'required|string',
+    'mother_name' => 'nullable|string',
+    'phone'       => 'required|string',
+    'email'       => 'required|email|unique:parents,email',
+]);
     $user = User::create([
         'username' => $request->username,
         'password' => bcrypt($request->password),

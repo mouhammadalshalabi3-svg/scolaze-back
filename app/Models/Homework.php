@@ -17,9 +17,9 @@ class Homework extends Model
 
     public $timestamps = false;
 
-    public function assignment()
+    public function teachingAssignment()
     {
-        return $this->belongsTo(TeachingAssignment::class);
+        return $this->belongsTo(TeachingAssignment::class, 'assignment_id');
     }
 
     public function grades()

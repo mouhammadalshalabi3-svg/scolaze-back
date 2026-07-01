@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\Section;
-
+use App\Services\NotificationService;
 class AttendanceController extends Controller
 {
     
@@ -40,7 +40,13 @@ class AttendanceController extends Controller
             'records.*'   => 'in:present,absent,late',
             'supervisor_id' => 'required|exists:supervisors,id',
         ]);
-
+        $user = auth()->user();
+        if ($user->role !== 'admin' && $user->role !== 'supervisor') {
+            return response()->json(['message' => 'غير مصرح لك بتسجيل الحضور'], 403);
+        }
+        if ($user->role === 'supervisor' && $user->supervisor?->id !== (int) $request->supervisor_id) {
+            return response()->json(['message' => 'لا يمكنك تسجيل الحضور باسم موجه آخر'], 403);
+        }
         Section::findOrFail($section_id);
 
         $created = [];
@@ -56,6 +62,18 @@ class AttendanceController extends Controller
                 ]
             );
             $created[] = $record->id;
+            if ($status === 'absent' || $status === 'late') {
+    $student = Student::with('parent')->find($student_id);
+    if ($student?->parent?->user_id) {
+        $statusText = $status === 'absent' ? 'غائب' : 'متأخر';
+        NotificationService::send(
+            $student->parent->user_id,
+            'تسجيل غياب',
+            'ابنك/ابنتك ' . $student->first_name . ' سُجل ' . $statusText . ' بتاريخ ' . $request->date,
+            'attendance'
+        );
+    }
+}
         }
 
         return response()->json([

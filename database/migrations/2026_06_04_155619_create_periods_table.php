@@ -11,15 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('periods', function (Blueprint $table) {
-            $table->id();
-            $table->integer('period_number');
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->timestamps();
-        });
-    }
-
+      Schema::create('periods', function (Blueprint $table) {
+    $table->id();
+    $table->integer('period_number');
+    $table->time('start_time');
+    $table->time('end_time');
+    $table->enum('day_of_week', [
+        'sunday','monday','tuesday','wednesday','thursday'
+    ]);
+    $table->enum('status', [
+        'completed','absent','cancelled'
+    ])->nullable();
+    $table->foreignId('assignment_id')
+        ->constrained('teaching_assignments')
+        ->cascadeOnDelete();
+    $table->timestamps();
+});
+}
     /**
      * Reverse the migrations.
      */

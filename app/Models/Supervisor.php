@@ -28,4 +28,8 @@ class Supervisor extends Model
     {
         return $this->hasMany(Attendance::class);
     }
+    public function periodAttendances()
+    {
+        return $this->hasMany(PeriodAttendance::class);
+    }
 }

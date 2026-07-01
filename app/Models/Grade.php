@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Grade extends Model
 {
      use HasFactory;
-
+    protected $fillable = ['name'];
     public function sections()
     {
         return $this->hasMany(Section::class);

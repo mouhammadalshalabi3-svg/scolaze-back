@@ -22,6 +22,7 @@ return new class extends Migration
             $table->boolean('is_read')->default(false);
 
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('image')->nullable();
 
             $table->timestamps();
         });

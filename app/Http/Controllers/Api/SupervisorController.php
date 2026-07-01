@@ -10,6 +10,14 @@ class SupervisorController extends Controller
 {
     public function store(Request $request)
 {
+    $request->validate([
+    'username'   => 'required|string|unique:users,username',
+    'password'   => 'required|string|min:6',
+    'first_name' => 'required|string',
+    'last_name'  => 'required|string',
+    'phone'      => 'required|string',
+    'email'      => 'required|email|unique:supervisors,email',
+]);
     $user = User::create([
         'username' => $request->username,
         'password' => bcrypt($request->password),

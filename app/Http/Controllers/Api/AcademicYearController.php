@@ -10,6 +10,7 @@ use App\Models\Student;
 use App\Models\Section;
 use App\Models\Teacher;
 use App\Models\Subject;
+use App\Services\NotificationService;
 
 class AcademicYearController extends Controller
 {
@@ -18,7 +19,8 @@ class AcademicYearController extends Controller
     {
         $year = AcademicYear::findOrFail($year_id);
 
-        $sections = $year->sections()->with('grade')->get()->map(fn($s) => [
+        $sections = $year->sections()->with('grade')->get()
+        ->map(fn($s) => [
                 'section_id'   => $s->id,
                 'section_name' => $s->name,
                 'class_name'   => $s->grade->name,
@@ -63,7 +65,7 @@ class AcademicYearController extends Controller
                     'section'    => $student->section->name ?? null,
                 ];
             })
-            ->sortByDesc('average') ->take(5)->values();
+            ->sortByDesc('average')->take(5)->values();
 
         return response()->json(['top_students' => $students]);
     }
@@ -74,16 +76,25 @@ class AcademicYearController extends Controller
         $request->validate([
             'exam_number' => 'required|integer',
             'schedule'    => 'required|array',
-            'schedule.*'  => 'exists:subjects,id',
         ]);
 
-        $year = AcademicYear::findOrFail($year_id);
+        AcademicYear::findOrFail($year_id);
 
         $sections = Section::where('academic_year_id', $year_id)->get();
+
+        if ($sections->isEmpty()) {
+            return response()->json(['message' => 'لا توجد شعب في هاي السنة'], 422);
+        }
 
         $created = [];
 
         foreach ($request->schedule as $date => $subject_id) {
+            if (!Subject::where('id', $subject_id)->exists()) {
+                return response()->json([
+                    'message' => "المادة رقم {$subject_id} غير موجودة",
+                ], 422);
+            }
+
             foreach ($sections as $section) {
                 $exam = Exam::create([
                     'exam_type'  => 'exam_' . $request->exam_number,
@@ -95,7 +106,8 @@ class AcademicYearController extends Controller
                 $created[] = $exam->id;
             }
         }
-
+$userIds = Student::whereHas('section', fn($q) => $q->where('academic_year_id', $year_id))->pluck('user_id');
+NotificationService::sendToMany($userIds, 'جدول امتحانات جديد', 'تم نشر جدول الامتحان رقم ' . $request->exam_number, 'exam_schedule');
         return response()->json([
             'message' => 'تم حفظ جدول الامتحانات بنجاح',
             'created' => count($created),
@@ -118,7 +130,6 @@ class AcademicYearController extends Controller
     }
 
    
-    // تحديد السنة النشطة مع حماية السنوات السابقة
     public function setActiveYear(Request $request)
     {
         $request->validate([
@@ -131,10 +142,10 @@ class AcademicYearController extends Controller
 
         return response()->json([
             'active_year' => [
-                'year_id'     => $year->id,
-                'name'        => $year->name,
+                'year_id'      => $year->id,
+                'name'         => $year->name,
                 'is_read_only' => $isReadOnly,
-                'message'     => $isReadOnly
+                'message'      => $isReadOnly
                     ? 'هاي سنة سابقة — للقراءة فقط'
                     : 'السنة الحالية — يمكن التعديل',
             ]
@@ -142,7 +153,6 @@ class AcademicYearController extends Controller
     }
 
     
-    // بحث عن طالب أو أستاذ بالاسم
     public function search(Request $request)
     {
         $request->validate([
@@ -153,8 +163,7 @@ class AcademicYearController extends Controller
         $name   = $request->name;
         $yearId = $request->year_id;
 
-        // بحث بالطلاب
-        $students = Student::whereHas('section', fn($q) =>$q->where('academic_year_id', $yearId))
+        $students = Student::whereHas('section', fn($q) => $q->where('academic_year_id', $yearId))
             ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"))->get()
             ->map(fn($s) => [
                 'type'    => 'student',
@@ -164,9 +173,8 @@ class AcademicYearController extends Controller
                 'section' => $s->section->name ?? null,
             ]);
 
-        // بحث بالأساتذة
-        $teachers = Teacher::whereHas('assignments.section', fn($q) =>$q->where('academic_year_id', $yearId))->where(fn($q) => $q
-                ->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"))->get()
+        $teachers = Teacher::whereHas('assignments.section', fn($q) => $q->where('academic_year_id', $yearId))
+            ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"))->get()
             ->map(fn($t) => [
                 'type'  => 'teacher',
                 'id'    => $t->id,
@@ -180,5 +188,25 @@ class AcademicYearController extends Controller
             'results' => $results,
             'count'   => $results->count(),
         ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name'       => 'required|string|unique:academic_years,name',
+            'start_date' => 'required|date',
+            'end_date'   => 'required|date|after:start_date',
+        ]);
+
+        $year = AcademicYear::create([
+            'name'       => $request->name,
+            'start_date' => $request->start_date,
+            'end_date'   => $request->end_date,
+        ]);
+
+        return response()->json([
+            'message' => 'تم إنشاء السنة الدراسية بنجاح',
+            'year'    => $year,
+        ], 201);
     }
 }

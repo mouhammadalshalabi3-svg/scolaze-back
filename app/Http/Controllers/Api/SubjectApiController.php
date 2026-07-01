@@ -19,7 +19,7 @@ class SubjectApiController extends Controller
             'teachingAssignments.teacher'
         ])->get();
 
-        // نصنفهم حسب السنة
+        
         $classified = [];
 
         foreach ($subjects as $subject) {
@@ -125,14 +125,13 @@ class SubjectApiController extends Controller
 
     
     // رفع ملف أو فيديو للمكتبة
-    public function addToLibrary(Request $request, $subject_id)
-    {
-       
+   public function addToLibrary(Request $request, $subject_id)
+{
     $request->validate([
-        'title'    => 'required|string',
-        'grade_id' => 'required|exists:grades,id',
+        'title'       => 'required|string',
+        'grade_id'    => 'required|exists:grades,id',
         'category_id' => 'required|exists:library_categories,id',
-        'file'     => 'required|file|mimes:pdf,mp4,mov,avi|max:51200',
+        'file'        => 'required|file|mimes:pdf,mp4,mov,avi|max:51200',
     ]);
 
     Subject::findOrFail($subject_id);
@@ -145,21 +144,24 @@ class SubjectApiController extends Controller
     $item = \App\Models\LibraryItem::create([
         'title'       => $request->title,
         'type'        => $fileType,
-        'file_uri'    => $filePath,  // file_url مش file_uri
+        'file_uri'    => $filePath,
         'category_id' => $request->category_id,
-        'grade_id'    => $request->grade_id,  // grade_id مش classe_id
+        'grade_id'    => $request->grade_id,
+        'subject_id'  => $subject_id,
     ]);
 
     return response()->json([
         'message' => 'تم رفع الملف بنجاح',
         'item'    => [
-            'item_id'  => $item->id,
-            'title'    => $item->title,
-            'type'     => $item->type,
-            'file_uri' => $item->file_uri,
-            ],
-        ], 201);
- }
+            'item_id'    => $item->id,
+            'title'      => $item->title,
+            'type'       => $item->type,
+            'file_uri'   => $item->file_uri,
+            'subject_id' => $item->subject_id,
+            'grade_id'   => $item->grade_id,
+        ],
+    ], 201);
+}
     
 
     

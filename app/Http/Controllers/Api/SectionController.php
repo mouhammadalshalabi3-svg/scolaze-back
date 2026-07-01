@@ -4,24 +4,24 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\TeachingAssignment;
-use App\Models\Schedule;
+use App\Models\Period;
 use App\Models\Section;
 use App\Models\StudentGrade;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
-
 
 class SectionController extends Controller
 {
-    // GET /sections/{section_id}/students?sort_by=name|average
+  
     public function getStudents(Request $request, $section_id)
     {
         $section = Section::findOrFail($section_id);
-        $sortBy  = $request->get('sort_by', 'name'); // name أو average
+        $sortBy  = $request->get('sort_by', 'name');
 
         $students = $section->students()->with('grades')->get()
             ->map(function ($s) {
                 return [
-                    'student_id' => $s->student_id,
+                    'student_id' => $s->id,              
                     'name'       => $s->first_name . ' ' . $s->last_name,
                     'photo'      => $s->photo,
                     'average'    => round($s->grades->avg('mark') ?? 0, 2),
@@ -38,22 +38,22 @@ class SectionController extends Controller
         ]);
     }
 
-    // يرجع المواد مع أستاذها في هاد الصف
+ 
     public function getSubjects($section_id)
     {
         $section = Section::findOrFail($section_id);
 
-      $assignments = $section->assignments()  ->with('subject', 'teacher')->get()
-        ->map(fn($a) => [
-        'subject_id'   => $a->subject->subject_id,
-        'subject_name' => $a->subject->name,
-        'teacher'      => [
-            'teacher_id' => $a->teacher->teacher_id,
-            'name'       => $a->teacher->first_name . ' ' . $a->teacher->last_name,
-            'photo'      => $a->teacher->photo,
-            'email'      => $a->teacher->email,
-        ],
-    ]);
+        $assignments = $section->assignments()->with('subject', 'teacher')->get()
+            ->map(fn($a) => [
+                'subject_id'   => $a->subject->id,             
+                'subject_name' => $a->subject->name,
+                'teacher'      => [
+                    'teacher_id' => $a->teacher->id,          
+                    'name'       => $a->teacher->first_name . ' ' . $a->teacher->last_name,
+                    'photo'      => $a->teacher->photo,
+                    'email'      => $a->teacher->email,
+                ],
+            ]);
 
         return response()->json([
             'section'  => $section->name,
@@ -61,101 +61,136 @@ class SectionController extends Controller
         ]);
     }
 
-    // GET /sections/{section_id}/schedule
-   public function getSchedule($section_id)
-{
-    $section = Section::findOrFail($section_id);
+    public function getSchedule($section_id)
+    {
+        $section = Section::findOrFail($section_id);
 
-    $assignmentIds = \App\Models\TeachingAssignment::where('section_id', $section_id)->pluck('id');
+        $assignmentIds = TeachingAssignment::where('section_id', $section_id)->pluck('id');
+        $periods = Period::whereIn('assignment_id', $assignmentIds)
+            ->with(['assignment.subject', 'assignment.teacher'])
+            ->orderByRaw("FIELD(day_of_week, 'sunday','monday','tuesday','wednesday','thursday')")
+            ->orderBy('period_number')
+            ->get()
+            ->map(fn($p) => [
+                'period_id'     => $p->id,
+                'day'           => $p->day_of_week,
+                'period_number' => $p->period_number,
+                'start_time'    => $p->start_time,
+                'end_time'      => $p->end_time,
+                'subject'       => $p->assignment->subject->name,
+                'teacher'       => $p->assignment->teacher->first_name . ' ' . $p->assignment->teacher->last_name,
+            ]);
 
-    $schedules = Schedule::whereIn('assignment_id', $assignmentIds)
-        ->with(['period', 'teachingAssignment.subject', 'teachingAssignment.teacher'])->get()
-        ->map(fn($s) => [
-            'day'     => $s->day_of_week,
-            'period'  => [
-                'number'     => $s->period->Period_number,
-                'start_time' => $s->period->start_time,
-                'end_time'   => $s->period->end_time,
-            ],
-            'subject' => $s->teachingAssignment->subject->name,
-            'teacher' => $s->teachingAssignment->teacher->first_name,
+        return response()->json([
+            'section'  => $section->name,
+            'schedule' => $periods,
         ]);
+    }
 
-    return response()->json([
-        'section'  => $section->name,
-        'schedule' => $schedules,
-    ]);
-}
-
-    // يحدث الجدول مع فحص التعارض
+    
     public function updateSchedule(Request $request, $section_id)
     {
+        Section::findOrFail($section_id);
+
         $request->validate([
-            'schedule'               => 'required|array',
-            'schedule.*.day'         => 'required|string',
-            'schedule.*.period_id'   => 'required|exists:periods,period_id',
-            'schedule.*.assignment_id' => 'required|exists:teaching_assignments,assignment_id',
+            'schedule'                  => 'required|array',
+            'schedule.*.day'            => 'required|in:sunday,monday,tuesday,wednesday,thursday',
+            'schedule.*.period_number'  => 'required|integer|min:1',
+            'schedule.*.start_time'     => 'required|date_format:H:i',
+            'schedule.*.end_time'       => 'required|date_format:H:i|after:schedule.*.start_time',
+            'schedule.*.assignment_id'  => 'required|exists:teaching_assignments,id',
         ]);
 
-        // فحص التعارض: نشوف إذا الأستاذ عندو حصة بنفس اليوم والفترة بصف ثاني
+
         foreach ($request->schedule as $slot) {
-            $assignment = \App\Models\TeachingAssignment::findOrFail($slot['assignment_id']);
+            $assignment = TeachingAssignment::findOrFail($slot['assignment_id']);
             $teacherId  = $assignment->teacher_id;
 
-            $conflict = Schedule::whereHas('assignment_id', fn($q) =>
-                    $q->where('teacher_id', $teacherId)->where('section_id', '!=', $section_id)
-                )->where('day_of_week', $slot['day'])->where('Period_id', $slot['period_id'])->exists();
+            $conflict = Period::where('day_of_week', $slot['day'])
+                ->where('period_number', $slot['period_number'])
+                ->whereHas('assignment', function ($q) use ($teacherId, $section_id) {
+                    $q->where('teacher_id', $teacherId)
+                      ->where('section_id', '!=', $section_id); 
+                })
+                ->exists();
 
             if ($conflict) {
                 return response()->json([
-                    'message' => 'تعارض في جدول الأستاذ يوم ' . $slot['day'] . ' في هاد الفترة',
+                    'message' => 'تعارض: الأستاذ عندو حصة ثانية يوم ' . $slot['day'] . ' في الحصة ' . $slot['period_number'],
                 ], 422);
             }
         }
 
-        // حذف الجدول القديم وكتابة الجديد
-        $assignmentIds = collect($request->schedule)->pluck('assignment_id');
-        Schedule::whereIn('assignment_id', $assignmentIds)->delete();
-
+        $oldAssignmentIds = TeachingAssignment::where('section_id', $section_id)->pluck('id');
+        Period::whereIn('assignment_id', $oldAssignmentIds)->delete(); 
         foreach ($request->schedule as $slot) {
-            Schedule::create([
+            Period::create([
                 'day_of_week'   => $slot['day'],
-                'Period_id'     => $slot['period_id'],
+                'period_number' => $slot['period_number'],
+                'start_time'    => $slot['start_time'],
+                'end_time'      => $slot['end_time'],
                 'assignment_id' => $slot['assignment_id'],
             ]);
         }
+        $userIds = Section::find($section_id)->students->pluck('user_id');
+        NotificationService::sendToMany($userIds, 'تحديث جدول الدوام', 'تم تحديث جدول دوام الشعبة', 'schedule_update');
 
         return response()->json(['message' => 'تم تحديث الجدول بنجاح']);
     }
 
-    /
-    // يخزن علامات الطلاب، يستقبل: exam_id + {student_id: mark}
+
     public function storeMarks(Request $request, $section_id)
+    {
+        Section::findOrFail($section_id);
+
+        $request->validate([
+            'exam_id' => 'required|exists:exams,id',
+            'marks'   => 'required|array',
+            'marks.*' => 'numeric|min:0',
+        ]);
+
+        $examId = $request->input('exam_id');
+
+        foreach ($request->marks as $student_id => $mark) {
+            StudentGrade::updateOrCreate(
+                [
+                    'student_id' => $student_id,
+                    'exam_id'    => $examId,
+                ],
+                [
+                    'mark'          => $mark,
+                    'parent_viewed' => false,
+                ]
+            );
+
+            $studentUserId = \App\Models\Student::find($student_id)?->user_id;
+if ($studentUserId) {
+    NotificationService::send($studentUserId, 'علامة امتحان جديدة', 'تم رصد علامتك: ' . $mark, 'exam_grade');
+}
+        }
+
+        return response()->json([
+            'message' => 'تم حفظ العلامات بنجاح',
+            'count'   => count($request->marks),
+        ]);
+    }
+    public function store(Request $request)
 {
     $request->validate([
-        'exam_id' => 'required|exists:exams,id',
-        'marks'   => 'required|array',
-        'marks.*' => 'numeric|min:0',
+        'name'             => 'required|string|max:255',
+        'academic_year_id' => 'required|exists:academic_years,id',
+        'grade_id'         => 'required|exists:grades,id',
     ]);
 
-    $examId = $request->input('exam_id');
-
-    foreach ($request->marks as $student_id => $mark) {
-        StudentGrade::updateOrCreate(
-            [
-                'student_id' => $student_id,
-                'exam_id'    => $examId,
-            ],
-            [
-                'mark'         => $mark,
-                'parent_viewed' => false,
-            ]
-        );
-    }
+    $section = Section::create([
+        'name'             => $request->name,
+        'academic_year_id' => $request->academic_year_id,
+        'grade_id'         => $request->grade_id,
+    ]);
 
     return response()->json([
-        'message' => 'تم حفظ العلامات بنجاح',
-        'count'   => count($request->marks),
-    ]);
+        'message' => 'تم إنشاء الشعبة بنجاح',
+        'section' => $section,
+    ], 201);
 }
 }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class LibraryItem extends Model
 {
-        use HasFactory;
+    use HasFactory;
 
     protected $fillable = [
         'title',
@@ -15,7 +15,8 @@ class LibraryItem extends Model
         'file_uri',
         'type',
         'category_id',
-        'grade_id'
+        'grade_id',
+        'subject_id',
     ];
 
     public $timestamps = false;
@@ -28,5 +29,10 @@ class LibraryItem extends Model
     public function grade()
     {
         return $this->belongsTo(Grade::class);
+    }
+
+    public function subject()
+    {
+        return $this->belongsTo(Subject::class);
     }
 }
