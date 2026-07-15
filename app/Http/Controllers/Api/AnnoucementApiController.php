@@ -29,8 +29,9 @@ class AnnoucementApiController extends Controller
         $request->validate([
             'title'       => 'required|string',
             'content'     => 'required|string',
-            'target_role' => 'required|string',
+            'target_role' => 'required|in:all,teachers,first_grade,second_grade,third_grade',
             'image'       => 'nullable|image|max:2048',
+            'type'        => 'required|in:normal,urgent,important,activity,rule_policy',
         ]);
 
         $imagePath = null;
@@ -44,10 +45,9 @@ class AnnoucementApiController extends Controller
     'target_role' => $request->target_role,
     'user_id'     => auth()->id(),
     'image'       => $imagePath, 
+    'type'        => $request->type,
 ]);
-        $userIds = $request->target_role === 'all'
-    ? User::pluck('id')
-    : User::where('role', $request->target_role)->pluck('id');
+$userIds = $this->resolveTargetUserIds($request->target_role);
 
          NotificationService::sendToMany($userIds, $ad->title, $ad->content, 'announcement', $imagePath);
         return response()->json([
@@ -55,4 +55,34 @@ class AnnoucementApiController extends Controller
             'ad'      => $ad,
         ], 201);
     }
+    private function resolveTargetUserIds(string $targetRole)
+{
+    if ($targetRole === 'all') {
+        return User::pluck('id');
+    }
+
+    if ($targetRole === 'teachers') {
+        return User::where('role', 'teacher')->pluck('id');
+    }
+
+    // first_grade / second_grade / third_grade
+    $gradeIndex = ['first_grade' => 0, 'second_grade' => 1, 'third_grade' => 2][$targetRole];
+
+    $gradeId = \App\Models\Grade::orderBy('id')->skip($gradeIndex)->value('id');
+
+    if (!$gradeId) {
+        return collect();
+    }
+
+    return \App\Models\Student::whereHas('section', function ($q) use ($gradeId) {
+        $q->where('grade_id', $gradeId);
+    })->with('user')->get()->pluck('user_id');
+}
+public function destroy($id)
+{
+    $announcement = \App\Models\Announcement::findOrFail($id);
+    $announcement->delete();
+
+    return response()->json(['message' => 'تم حذف الإعلان بنجاح']);
+}
 }

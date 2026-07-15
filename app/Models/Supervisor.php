@@ -8,14 +8,21 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 class Supervisor extends Model
 {
     use HasFactory;
+protected $fillable = [
+    'first_name',
+    'last_name',
+    'phone',
+    'email',
+    'monthly_salary',
+    'grade_id',
+    'photo',
+    'user_id'
+];
 
-    protected $fillable = [
-        'first_name',
-        'last_name',
-        'phone',
-        'email',
-        'user_id'
-    ];
+public function grade()
+{
+    return $this->belongsTo(Grade::class);
+}
 
     public $timestamps = false;
 

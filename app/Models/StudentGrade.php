@@ -8,14 +8,13 @@ class StudentGrade extends Model
 {
         use HasFactory;
 
-    protected $fillable = [
-        
-
-        'mark',
-        'parent_viewed',
-        'exam_id',
-        'student_id'
-    ];
+   protected $fillable = [
+    'mark',
+    'parent_viewed',
+    'exam_id',
+    'subject_id',
+    'student_id'
+];
 
     
 
@@ -28,4 +27,9 @@ class StudentGrade extends Model
     {
         return $this->belongsTo(Student::class);
     }
+    public function subject()
+{
+    return $this->belongsTo(Subject::class);
+}
+
 }

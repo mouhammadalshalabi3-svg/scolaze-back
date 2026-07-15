@@ -52,68 +52,80 @@ class AcademicYearController extends Controller
     }
 
    
-    public function getTopStudents($year_id)
-    {
-        $students = Student::whereHas('section', fn($q) => $q->where('academic_year_id', $year_id))
-            ->with(['grades', 'section'])->get()->map(function ($student) {
-                $avg = $student->grades->avg('mark') ?? 0;
-                return [
-                    'student_id' => $student->id,
-                    'name'       => $student->first_name . ' ' . $student->last_name,
-                    'photo'      => $student->photo,
-                    'average'    => round($avg, 2),
-                    'section'    => $student->section->name ?? null,
-                ];
-            })
-            ->sortByDesc('average')->take(5)->values();
+ public function getTopStudents($year_id, Request $request)
+{
+    $request->validate([
+        'grade_id' => 'nullable|exists:grades,id',
+    ]);
 
-        return response()->json(['top_students' => $students]);
-    }
+    $students = Student::whereHas('section', function ($q) use ($year_id, $request) {
+            $q->where('academic_year_id', $year_id);
+            if ($request->grade_id) {
+                $q->where('grade_id', $request->grade_id);
+            }
+        })
+        ->with(['grades', 'section'])->get()->map(function ($student) {
+            $avg = $student->grades->avg('mark') ?? 0;
+            return [
+                'student_id' => $student->id,
+                'name'       => $student->first_name . ' ' . $student->last_name,
+                'photo'      => $student->photo,
+                'average'    => round($avg, 2),
+                'section'    => $student->section->name ?? null,
+            ];
+        })
+        ->sortByDesc('average')->take(5)->values();
+
+    return response()->json(['top_students' => $students]);
+}
 
     
-    public function storeExamSchedule(Request $request, $year_id)
-    {
-        $request->validate([
-            'exam_number' => 'required|integer',
-            'schedule'    => 'required|array',
-        ]);
+   public function storeExamSchedule(Request $request, $year_id)
+{
+    $request->validate([
+        'exam_number' => 'required|integer|min:1|max:4',
+        'grade_id'    => 'required|exists:grades,id',
+        'schedule'    => 'required|array',
+        'schedule.*.subject_id'  => 'required|exists:subjects,id',
+        'schedule.*.start_date'  => 'required|date',
+        'schedule.*.end_date'    => 'required|date|after_or_equal:schedule.*.start_date',
+    ]);
 
-        AcademicYear::findOrFail($year_id);
+    AcademicYear::findOrFail($year_id);
 
-        $sections = Section::where('academic_year_id', $year_id)->get();
+    $sections = Section::where('academic_year_id', $year_id)
+        ->where('grade_id', $request->grade_id)
+        ->get();
 
-        if ($sections->isEmpty()) {
-            return response()->json(['message' => 'لا توجد شعب في هاي السنة'], 422);
-        }
-
-        $created = [];
-
-        foreach ($request->schedule as $date => $subject_id) {
-            if (!Subject::where('id', $subject_id)->exists()) {
-                return response()->json([
-                    'message' => "المادة رقم {$subject_id} غير موجودة",
-                ], 422);
-            }
-
-            foreach ($sections as $section) {
-                $exam = Exam::create([
-                    'exam_type'  => 'exam_' . $request->exam_number,
-                    'exam_date'  => $date,
-                    'total_mark' => 100,
-                    'section_id' => $section->id,
-                    'subject_id' => $subject_id,
-                ]);
-                $created[] = $exam->id;
-            }
-        }
-$userIds = Student::whereHas('section', fn($q) => $q->where('academic_year_id', $year_id))->pluck('user_id');
-NotificationService::sendToMany($userIds, 'جدول امتحانات جديد', 'تم نشر جدول الامتحان رقم ' . $request->exam_number, 'exam_schedule');
-        return response()->json([
-            'message' => 'تم حفظ جدول الامتحانات بنجاح',
-            'created' => count($created),
-        ], 201);
+    if ($sections->isEmpty()) {
+        return response()->json(['message' => 'لا توجد شعب لهاد الصف بهاي السنة'], 422);
     }
 
+    $created = [];
+
+    foreach ($request->schedule as $row) {
+        foreach ($sections as $section) {
+            $exam = Exam::create([
+                'exam_type'  => 'exam_' . $request->exam_number,
+                'exam_date'  => $row['start_date'],
+                'total_mark' => 100,
+                'section_id' => $section->id,
+                'subject_id' => $row['subject_id'],
+            ]);
+            $created[] = $exam->id;
+        }
+    }
+
+    $userIds = Student::whereHas('section', fn($q) =>
+        $q->where('academic_year_id', $year_id)->where('grade_id', $request->grade_id)
+    )->pluck('user_id');
+    NotificationService::sendToMany($userIds, 'جدول امتحانات جديد', 'تم نشر جدول الامتحان رقم ' . $request->exam_number, 'exam_schedule');
+
+    return response()->json([
+        'message' => 'تم حفظ جدول الامتحانات بنجاح',
+        'created' => count($created),
+    ], 201);
+}
     
     public function getActiveYear()
     {
@@ -153,42 +165,45 @@ NotificationService::sendToMany($userIds, 'جدول امتحانات جديد', 
     }
 
     
-    public function search(Request $request)
-    {
-        $request->validate([
-            'name'    => 'required|string|min:2',
-            'year_id' => 'required|exists:academic_years,id',
-        ]);
+   public function search(Request $request)
+{
+    $request->validate([
+        'name'    => 'required|string|min:2',
+        'year_id' => 'nullable|exists:academic_years,id',
+    ]);
 
-        $name   = $request->name;
-        $yearId = $request->year_id;
+    $name = $request->name;
 
-        $students = Student::whereHas('section', fn($q) => $q->where('academic_year_id', $yearId))
-            ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"))->get()
-            ->map(fn($s) => [
-                'type'    => 'student',
-                'id'      => $s->id,
-                'name'    => $s->first_name . ' ' . $s->last_name,
-                'photo'   => $s->photo,
-                'section' => $s->section->name ?? null,
-            ]);
+    $studentsQuery = Student::query()
+        ->when($request->year_id, fn($q) => $q->whereHas('section', fn($qs) => $qs->where('academic_year_id', $request->year_id)))
+        ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"));
 
-        $teachers = Teacher::whereHas('assignments.section', fn($q) => $q->where('academic_year_id', $yearId))
-            ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"))->get()
-            ->map(fn($t) => [
-                'type'  => 'teacher',
-                'id'    => $t->id,
-                'name'  => $t->first_name . ' ' . $t->last_name,
-                'photo' => $t->photo,
-            ]);
+    $students = $studentsQuery->get()->map(fn($s) => [
+        'type'    => 'student',
+        'id'      => $s->id,
+        'name'    => $s->first_name . ' ' . $s->last_name,
+        'photo'   => $s->photo,
+        'section' => $s->section->name ?? null,
+    ]);
 
-        $results = $students->merge($teachers)->values();
+    $teachersQuery = Teacher::query()
+        ->when($request->year_id, fn($q) => $q->whereHas('assignments.section', fn($qs) => $qs->where('academic_year_id', $request->year_id)))
+        ->where(fn($q) => $q->where('first_name', 'LIKE', "%{$name}%")->orWhere('last_name', 'LIKE', "%{$name}%"));
 
-        return response()->json([
-            'results' => $results,
-            'count'   => $results->count(),
-        ]);
-    }
+    $teachers = $teachersQuery->get()->map(fn($t) => [
+        'type'  => 'teacher',
+        'id'    => $t->id,
+        'name'  => $t->first_name . ' ' . $t->last_name,
+        'photo' => $t->photo,
+    ]);
+
+    $results = $students->merge($teachers)->values();
+
+    return response()->json([
+        'results' => $results,
+        'count'   => $results->count(),
+    ]);
+}
 
     public function store(Request $request)
     {

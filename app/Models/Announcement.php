@@ -9,13 +9,14 @@ class Announcement extends Model
 {
         use HasFactory;
 
-    protected $fillable = [
-        'title',
-        'content',
-        'target_role',
-        'user_id',
-        'image',
-    ];
+   protected $fillable = [
+    'title',
+    'content',
+    'target_role',
+    'type',
+    'user_id',
+    'image',
+];
 
     public $timestamps = false;
 

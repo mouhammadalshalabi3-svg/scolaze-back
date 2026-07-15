@@ -55,4 +55,8 @@ class Student extends Model
     {
         return $this->hasMany(  AdminMessage::class);
     }
+    public function evaluations()
+{
+    return $this->hasMany(StudentEvaluation::class);
+}
 }

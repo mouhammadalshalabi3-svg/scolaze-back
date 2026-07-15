@@ -9,6 +9,7 @@ use App\Models\Teacher;
 use App\Models\AdminMessage;
 use App\Models\Admin;
 use App\Services\NotificationService;
+use Illuminate\Support\Str;
 class TeacherApiController extends Controller
 {
      public function index()
@@ -29,47 +30,55 @@ class TeacherApiController extends Controller
     // إضافة أستاذ جديد
     public function store(Request $request)
     {
-        $request->validate([
-            'first_name'  => 'required|string',
-            'last_name'   => 'required|string',
-            'phone'       => 'required|string',
-            'email'       => 'required|email|unique:teachers,email',
-           'salary_type' => 'required|in:monthly,per_session',
-            'photo'       => 'nullable|image|max:2048',
-            'username'    => 'required|string|unique:users,username',
-            'password'    => 'required|string|min:6',
-        ]);
+$request->validate([
+    'full_name'   => 'required|string',
+    'phone'       => 'required|string',
+    'email'       => 'nullable|email|unique:teachers,email',
+    'rate_per_lesson' => 'required|numeric',
+    'subject_id'  => 'nullable|exists:subjects,id',
+    'photo'       => 'nullable|image|max:2048',
+]);
 
+[$firstName, $lastName] = array_pad(explode(' ', $request->full_name, 2), 2, '');
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('teachers', 'public');
         }
+        do {
+    $username = 'tch_' . Str::lower($request->first_name) . rand(100, 999);
+} while (User::where('username', $username)->exists());
+$password = Str::random(8);
 
        
         $user = User::create([
-            'username' => $request->username,
-            'password' => bcrypt($request->password),
+            'username' => $username,
+            'password' => bcrypt($password),
             'role'     => 'teacher',
             'status'   => true,
         ]);
 
-      
-        $teacher = Teacher::create([
-            'first_name'  => $request->first_name,
-            'last_name'   => $request->last_name,
-            'phone'       => $request->phone,
-            'email'       => $request->email,
-            'salary_type' => $request->salary_type,
-            'photo'       => $photoPath,
-            'user_id'     => $user->id,
-        ]);
-
+     $teacher = Teacher::create([
+    'first_name'      => $firstName,
+    'last_name'       => $lastName,
+    'phone'           => $request->phone,
+    'email'           => $request->email,
+    'salary_type'     => 'per_session',
+    'rate_per_lesson' => $request->rate_per_lesson,
+    'subject_id'      => $request->subject_id,
+    'photo'           => $photoPath,
+    'user_id'         => $user->id,
+]);
         return response()->json([
             'message' => 'تم إضافة الأستاذ بنجاح',
             'teacher' => [
-                'teacher_id' => $teacher->id,
-                'name'       => $teacher->first_name . ' ' . $teacher->last_name,
-                'username'   => $user->username,
+                    'teacher' => [
+                        'teacher_id' => $teacher->id,
+                        'name'       => $teacher->first_name . ' ' . $teacher->last_name,
+                    ],
+                    'credentials' => [
+                        'username' => $username,
+                        'password' => $password,
+                    ],
             ],
         ], 201);
     }

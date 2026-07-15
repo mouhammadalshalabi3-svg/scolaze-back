@@ -139,41 +139,67 @@ class SectionController extends Controller
     }
 
 
-    public function storeMarks(Request $request, $section_id)
-    {
-        Section::findOrFail($section_id);
+   public function storeMarks(Request $request, $section_id)
+{
+    Section::findOrFail($section_id);
 
-        $request->validate([
-            'exam_id' => 'required|exists:exams,id',
-            'marks'   => 'required|array',
-            'marks.*' => 'numeric|min:0',
-        ]);
+    $request->validate([
+        'subject_id' => 'required|exists:subjects,id',
+        'student_id' => 'required|exists:students,id',
+        'mark'       => 'required|numeric|min:0',
+        'type'       => 'nullable|in:main,activity',
+    ]);
 
-        $examId = $request->input('exam_id');
+    $type = $request->type ?? 'main';
 
-        foreach ($request->marks as $student_id => $mark) {
-            StudentGrade::updateOrCreate(
-                [
-                    'student_id' => $student_id,
-                    'exam_id'    => $examId,
-                ],
-                [
-                    'mark'          => $mark,
-                    'parent_viewed' => false,
-                ]
-            );
+    $grade = StudentGrade::updateOrCreate(
+        [
+            'student_id' => $request->student_id,
+            'subject_id' => $request->subject_id,
+            'type'       => $type,
+        ],
+        [
+            'mark'          => $request->mark,
+            'parent_viewed' => false,
+        ]
+    );
 
-            $studentUserId = \App\Models\Student::find($student_id)?->user_id;
-if ($studentUserId) {
-    NotificationService::send($studentUserId, 'علامة امتحان جديدة', 'تم رصد علامتك: ' . $mark, 'exam_grade');
-}
-        }
-
-        return response()->json([
-            'message' => 'تم حفظ العلامات بنجاح',
-            'count'   => count($request->marks),
-        ]);
+    $studentUserId = \App\Models\Student::find($request->student_id)?->user_id;
+    if ($studentUserId) {
+        $label = $type === 'activity' ? 'علامة نشاط جديدة' : 'علامة جديدة';
+        NotificationService::send($studentUserId, $label, 'تم رصد علامتك: ' . $request->mark, 'exam_grade');
     }
+
+    return response()->json([
+        'message' => 'تم حفظ العلامة بنجاح',
+        'grade'   => $grade,
+    ]);
+}
+
+// POST /sections/{section_id}/evaluations
+public function storeEvaluation(Request $request, $section_id)
+{
+    Section::findOrFail($section_id);
+
+    $request->validate([
+        'subject_id' => 'required|exists:subjects,id',
+        'student_id' => 'required|exists:students,id',
+        'comment'    => 'nullable|string',
+        'grade'      => 'required|integer|min:0|max:10',
+    ]);
+
+    $evaluation = \App\Models\StudentEvaluation::create([
+        'student_id' => $request->student_id,
+        'subject_id' => $request->subject_id,
+        'comment'    => $request->comment,
+        'grade'      => $request->grade,
+    ]);
+
+    return response()->json([
+        'message'    => 'تم حفظ التقييم السلوكي بنجاح',
+        'evaluation' => $evaluation,
+    ], 201);
+}
     public function store(Request $request)
 {
     $request->validate([

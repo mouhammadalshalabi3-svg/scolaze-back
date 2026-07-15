@@ -17,14 +17,14 @@ use App\Http\Controllers\Api\HomeworkController;
 use App\Http\Controllers\Api\SalaryController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PeriodAttendanceController;
-
-
+ use App\Http\Controllers\Api\GradeApiController;
+use App\Http\Controllers\Api\DashboardApiController;
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
 Route::post('/login', [AuthController::class, 'login']);
-
+Route::post('/parent-login', [AuthController::class, 'parentLogin']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', function (Request $request) {
         return $request->user();
@@ -38,7 +38,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
     // إنشاء حسابات
     Route::post('/users',       [UserController::class, 'store']);
     Route::post('/teachers',    [TeacherApiController::class, 'store']);
-    Route::post('/students',    [StudentApiController::class, 'store']);
+Route::post('/sections/{section_id}/students', [StudentApiController::class, 'store']);
     Route::post('/parents',     [ParentController::class, 'store']);
     Route::post('/supervisors', [SupervisorController::class, 'store']);
 
@@ -59,13 +59,15 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
     // علامات امتحانات
     Route::post('/sections/{section_id}/marks', [SectionController::class, 'storeMarks']);
+    Route::post('/sections/{section_id}/evaluations', [SectionController::class, 'storeEvaluation']);
 
     // مواد — إضافة مادة وربط أستاذ فيها
     Route::post('/subjects',[SubjectApiController::class, 'store']);
     Route::post('/subjects/{subject_id}/teachers', [SubjectApiController::class, 'assignTeacher']);
-
+    Route::post('/subjects/{subject_id}/connect-teacher', [SubjectApiController::class, 'connectTeacher']);
     // رواتب — كلها أدمن فقط (بيانات حساسة)
     Route::post('/teachers/{teacher_id}/salary', [SalaryController::class, 'store']);
+    Route::patch('/salaries/{salary_id}/mark-paid', [SalaryController::class, 'markPaid']);
     Route::get('/teachers/{teacher_id}/salary',  [SalaryController::class, 'getTeacherSalary']);
     Route::get('/salaries',                      [SalaryController::class, 'index']);
 
@@ -74,12 +76,16 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function () {
 
     // إعلانات — الإضافة للأدمن فقط
     Route::post('/Annoucements', [AnnoucementApiController::class, 'store']);
-
+Route::delete('/announcements/{id}', [AnnoucementApiController::class, 'destroy']);
     // مراسلة أهل أو أستاذ
     Route::post('/teachers/{teacher_id}/content', [TeacherApiController::class, 'content']);
     Route::post('/students/{student_id}/content',  [StudentApiController::class, 'content']);
-    // ملخص حصص الأستاذ للراتب — أدمن فقط
+ // ملخص حصص الأستاذ للراتب — أدمن فقط
     Route::get('/teachers/{teacher_id}/sessions-summary', [PeriodAttendanceController::class, 'sessionsSummary']);
+
+    // إحصائيات الداشبورد الرئيسية — أدمن فقط
+    Route::get('/dashboard/overview', [DashboardApiController::class, 'overview']);
+
 });
 
 
@@ -91,6 +97,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/years/{year_id}/top-students',[AcademicYearController::class, 'getTopStudents']);
     Route::get('/years/active',[AcademicYearController::class, 'getActiveYear']);
     Route::post('/search',[AcademicYearController::class, 'search']);
+   
+    Route::get('/grades/{grade_id}/sections', [GradeApiController::class, 'sections']);
 
     // Section
     Route::get('/sections/{section_id}/students', [SectionController::class, 'getStudents']);

@@ -8,16 +8,22 @@ class Teacher extends Model
 {
     
     use HasFactory;
+protected $fillable = [
+    'first_name',
+    'last_name',
+    'phone',
+    'email',
+    'photo',
+    'salary_type',
+    'rate_per_lesson',
+    'subject_id',
+    'user_id'
+];
 
-    protected $fillable = [
-        'first_name',
-        'last_name',
-        'phone',
-        'email',
-        'photo',
-        'salary_type',
-        'user_id'
-    ];
+public function subject()
+{
+    return $this->belongsTo(Subject::class);
+}
 
     public function user()
     {

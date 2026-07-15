@@ -12,71 +12,101 @@ use Illuminate\Support\Str;
  use App\Services\NotificationService;
 class StudentApiController extends Controller
 {
-    public function store(Request $request)
-    {
-        $request->validate([
-            'first_name' => 'required|string',
-            'last_name'  => 'required|string',
-            'birth_date' => 'required|date',
-            'gender'     => 'required|in:male,female',
-            'address'    => 'required|string',
-            'section_id' => 'required|exists:sections,id',
-            'parent_id'  => 'required|exists:parents,id',
-            'photo'      => 'nullable|image|max:2048',
-        ]);
- 
-        $username = 'std_' . Str::lower($request->first_name) . rand(100, 999);
-        $password = Str::random(8);
- 
-        $photoPath = null;
-        if ($request->hasFile('photo')) {
-            $photoPath = $request->file('photo')->store('students', 'public');
-        }
- 
-        $user = User::create([
-            'username' => $username,
-            'password' => bcrypt($password),
-            'role'     => 'student',
-            'status'   => true,
-        ]);
- 
-        do {
-            $academicNumber = 'STD' . date('Y') . rand(1000, 9999);
-        } while (Student::where('academic_number', $academicNumber)->exists());
- 
-        $student = Student::create([
-            'first_name'      => $request->first_name,
-            'last_name'       => $request->last_name,
-            'birth_date'      => $request->birth_date,
-            'gender'          => $request->gender,
-            'address'         => $request->address,
-            'section_id'      => $request->section_id,
-            'parent_id'       => $request->parent_id,
-            'photo'           => $photoPath,
-            'user_id'         => $user->id,
-            'academic_number' => $academicNumber,
-        ]);
- 
-        return response()->json([
-            'message'  => 'تم إضافة الطالب بنجاح',
-            'student'  => [
-                'student_id' => $student->id,
-                'name'       => $student->first_name . ' ' . $student->last_name,
-            ],
-            'credentials' => [
-                'username' => $username,
-                'password' => $password,
-            ],
-        ], 201);
+   public function store(Request $request, $section_id)
+{
+    $request->validate([
+        'first_name'  => 'required|string',
+        'last_name'   => 'required|string',
+        'father_name' => 'required|string',
+        'mother_name' => 'nullable|string',
+        'phone'       => 'required|string',
+        'birth_date'  => 'required|date',
+        'photo'       => 'nullable|image|max:2048',
+    ]);
+
+    \App\Models\Section::findOrFail($section_id);
+
+    $photoPath = null;
+    if ($request->hasFile('photo')) {
+        $photoPath = $request->file('photo')->store('students', 'public');
     }
+
+    // 1) حساب الطالب
+    do {
+        $studentUsername = 'std_' . Str::lower($request->first_name) . rand(100, 999);
+    } while (User::where('username', $studentUsername)->exists());
+    $studentPassword = Str::random(8);
+
+    $studentUser = User::create([
+        'username' => $studentUsername,
+        'password' => bcrypt($studentPassword),
+        'role'     => 'student',
+        'status'   => true,
+    ]);
+
+    // 2) حساب الأهل (بلا username، فقط باسورد)
+    $parentPassword = Str::random(8);
+
+    $parentUser = User::create([
+        'username' => null,
+        'password' => bcrypt($parentPassword),
+        'role'     => 'parent',
+        'status'   => true,
+    ]);
+
+    $parent = \App\Models\ParentModel::create([
+        'father_name' => $request->father_name,
+        'mother_name' => $request->mother_name,
+        'phone'       => $request->phone,
+        'email'       => null,
+        'user_id'     => $parentUser->id,
+    ]);
+
+    // 3) الرقم الأكاديمي
+    do {
+        $academicNumber = 'STD' . date('Y') . rand(1000, 9999);
+    } while (Student::where('academic_number', $academicNumber)->exists());
+
+    $student = Student::create([
+        'first_name'      => $request->first_name,
+        'last_name'       => $request->last_name,
+        'birth_date'      => $request->birth_date,
+        'gender'          => null,
+        'address'         => null,
+        'section_id'      => $section_id,
+        'parent_id'       => $parent->id,
+        'photo'           => $photoPath,
+        'user_id'         => $studentUser->id,
+        'academic_number' => $academicNumber,
+    ]);
+
+    return response()->json([
+        'message'  => 'تم إضافة الطالب وربطه بالأهل بنجاح',
+        'student'  => [
+            'student_id'      => $student->id,
+            'name'            => $student->first_name . ' ' . $student->last_name,
+            'academic_number' => $student->academic_number,
+        ],
+        'credentials' => [
+            'student_username' => $studentUsername,
+            'student_password' => $studentPassword,
+            'parent_login'      => [
+                'student_academic_number' => $student->academic_number,
+                'parent_password'         => $parentPassword,
+            ],
+        ],
+    ], 201);
+}
  
     public function show($id)
     {
-        $student = Student::with([
-            'section.academicYear',
-            'grades.exam.subject',
-            'attendance',
-        ])->findOrFail($id);
+    $student = Student::with([
+    'section.academicYear',
+    'grades.exam.subject',
+    'grades.subject',
+    'evaluations.subject',
+    'attendance',
+])->findOrFail($id);
         $user = auth()->user();
         $isSelf    = $user->role === 'student' && $user->student?->id === $student->id;
         $isParent  = $user->role === 'parent'  && $user->parentInfo?->id === $student->parent_id;
@@ -91,14 +121,20 @@ class StudentApiController extends Controller
         $totalDays   = $student->attendance->count();
         $presentDays = $student->attendance->where('status', 'present')->count();
         $absentDays  = $totalDays - $presentDays;
- 
-        $marksHistory = $student->grades->map(fn($g) => [
-            'subject'    => $g->exam->subject->name ?? null,
-            'exam_type'  => $g->exam->exam_type ?? null,
-            'exam_date'  => $g->exam->exam_date ?? null,
-            'mark'       => $g->mark,
-            'total_mark' => $g->exam->total_mark ?? null,
-        ]);
+ $marksHistory = $student->grades->map(fn($g) => [
+    'subject'    => $g->exam->subject->name ?? $g->subject->name ?? null,
+    'type'       => $g->type ?? 'main',
+    'exam_type'  => $g->exam->exam_type ?? null,
+    'exam_date'  => $g->exam->exam_date ?? null,
+    'mark'       => $g->mark,
+    'total_mark' => $g->exam->total_mark ?? 100,
+]);
+
+$evaluations = $student->evaluations->map(fn($e) => [
+    'subject' => $e->subject->name ?? null,
+    'comment' => $e->comment,
+    'grade'   => $e->grade,
+]);
  
         return response()->json([
             'student' => [
@@ -117,6 +153,7 @@ class StudentApiController extends Controller
                 'absent'  => $absentDays,
             ],
             'marks_history' => $marksHistory,
+            'evaluations' => $evaluations,
         ]);
     }
  

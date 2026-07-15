@@ -53,34 +53,53 @@ class SalaryController extends Controller
     }
 
     // POST /teachers/{teacher_id}/salary
-    public function store(Request $request, $teacher_id)
-    {
-        $request->validate([
-            'year'               => 'required|integer',
-            'month'              => 'required|integer|min:1|max:12',
-            'total_amount'       => 'required|numeric',
-            'paid_status'        => 'required|in:pending,paid',
-            'completed_sessions' => 'required|integer',
-            'price_per_session'  => 'required|numeric',
-            'working_days'       => 'required|integer',
-        ]);
+ public function store(Request $request, $teacher_id)
+{
+    $request->validate([
+        'year'  => 'required|integer',
+        'month' => 'required|integer|min:1|max:12',
+    ]);
 
-        $teacher = Teacher::findOrFail($teacher_id);
+    $teacher = Teacher::with('assignments.periods')->findOrFail($teacher_id);
 
-        $salary = Salary::create([
-            'year'               => $request->year,
-            'month'              => $request->month,
-            'total_amount'       => $request->total_amount,
-            'paid_status'        => $request->paid_status,
-            'completed_sessions' => $request->completed_sessions,
-            'price_per_session'  => $request->price_per_session,
-            'working_days'       => $request->working_days,
-            'user_id'            => $teacher->user_id,
-        ]);
+    $periodIds = $teacher->assignments->flatMap(fn($a) => $a->periods->pluck('id'));
 
-        return response()->json([
-            'message' => 'تم تسجيل الراتب بنجاح',
-            'salary'  => $salary,
-        ], 201);
-    }
+    $records = \App\Models\PeriodAttendance::whereIn('period_id', $periodIds)
+        ->whereYear('session_date', $request->year)
+        ->whereMonth('session_date', $request->month)
+        ->get();
+
+    $completedSessions = $records->where('status', 'completed')->count();
+    $workingDays = $records->where('status', 'completed')->pluck('session_date')->unique()->count();
+    $ratePerSession = $teacher->rate_per_lesson ?? 0;
+    $totalAmount = $completedSessions * $ratePerSession;
+
+    $salary = Salary::updateOrCreate(
+        ['user_id' => $teacher->user_id, 'year' => $request->year, 'month' => $request->month],
+        [
+            'total_amount'       => $totalAmount,
+            'paid_status'        => 'pending',
+            'completed_sessions' => $completedSessions,
+            'price_per_session'  => $ratePerSession,
+            'working_days'       => $workingDays,
+        ]
+    );
+
+    return response()->json([
+        'message' => 'تم احتساب الراتب تلقائياً',
+        'salary'  => $salary,
+    ], 201);
+}
+
+// PATCH /salaries/{salary_id}/mark-paid
+public function markPaid($salary_id)
+{
+    $salary = Salary::findOrFail($salary_id);
+    $salary->update(['paid_status' => 'paid']);
+
+    return response()->json([
+        'message' => 'تم تحديث حالة الدفع',
+        'salary'  => $salary,
+    ]);
+}
 }
