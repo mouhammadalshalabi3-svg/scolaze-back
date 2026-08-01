@@ -1,0 +1,628 @@
+{
+  "info": {
+    "name": "Scolaze API — Student / Teacher / Parent / Supervisor",
+    "description": "كل الـ endpoints الخاصة بأقسام الطالب، الأستاذ، الأهل، والموجه بتطبيق Scolaze. ما فيها مسارات الأدمن الحصرية (قسم منفصل عند الأدمن).\n\nطريقة الاستخدام:\n1. عدّل متغير base_url (Collection Variables) ليطابق رابط السيرفر عندك.\n2. نفّذ Login أو Parent Login من مجلد Auth.\n3. انسخ الـ token من الرد، وحطو بمتغير collection اسمو token (بدون كلمة Bearer).\n4. باقي الطلبات كلها عم تاخد الـ token تلقائياً (Bearer Auth عالـ collection).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      { "key": "token", "value": "{{token}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "token", "value": "" },
+    { "key": "section_id", "value": "1" },
+    { "key": "student_id", "value": "1" },
+    { "key": "teacher_id", "value": "1" },
+    { "key": "subject_id", "value": "1" },
+    { "key": "homework_id", "value": "1" },
+    { "key": "attendance_id", "value": "1" },
+    { "key": "student_grade_id", "value": "1", "description": "id علامة الطالب (StudentGrade) — مو الصف الدراسي" },
+    { "key": "class_grade_id", "value": "1", "description": "id الصف الدراسي (Grade — مثلاً العاشر) — مو العلامة" },
+    { "key": "period_id", "value": "1" },
+    { "key": "notification_id", "value": "1" },
+    { "key": "announcement_id", "value": "1" },
+    { "key": "year_id", "value": "1" },
+    { "key": "message_id", "value": "1" },
+    { "key": "supervisor_id", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "0) Auth",
+      "item": [
+        {
+          "name": "Login (طالب / أستاذ)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"std_yousef123\",\n  \"password\": \"student123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "أي دور عندو username (طالب، أستاذ، موجه، أدمن). بيرجع token — احفظو بمتغير collection اسمو token."
+          },
+          "response": []
+        },
+        {
+          "name": "Parent Login (كلمة سر بس)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/parent-login",
+              "host": ["{{base_url}}"],
+              "path": ["parent-login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"parent123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "دخول الأهل — كلمة سر بس بلا أي معرّف. كل ولي أمر إلو كلمة سر فريدة."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
+          },
+          "response": []
+        },
+        {
+          "name": "بروفايلي (/me) — حسب الدور",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] },
+            "description": "بيرجع البروفايل الكامل حسب دور المستخدم (طالب/أستاذ/أهل/موجه/أدمن) — اسم، صورة، صف/شعبة، أولاد (للأهل)، إلخ."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1) مشترك بين كل الأدوار",
+      "item": [
+        {
+          "name": "الإعلانات — لائحة (مفلترة حسب الدور)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/Annoucements", "host": ["{{base_url}}"], "path": ["Annoucements"] }
+          },
+          "response": []
+        },
+        {
+          "name": "الإعلانات — إنشاء (أدمن أو أستاذ)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/Annoucements", "host": ["{{base_url}}"], "path": ["Annoucements"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "إعلان تجريبي", "type": "text" },
+                { "key": "content", "value": "محتوى الإعلان هون", "type": "text" },
+                { "key": "target_role", "value": "all", "type": "text", "description": "all | teachers | first_grade | second_grade | third_grade" },
+                { "key": "type", "value": "normal", "type": "text", "description": "normal | urgent | important | activity | rule_policy | administrative | academic" },
+                { "key": "image", "type": "file", "src": [] }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "الإعلانات — تعديل (صاحب الإعلان أو أدمن)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/announcements/{{announcement_id}}", "host": ["{{base_url}}"], "path": ["announcements", "{{announcement_id}}"] },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "title", "value": "عنوان معدّل", "type": "text" },
+                { "key": "content", "value": "محتوى معدّل", "type": "text" }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "الإعلانات — حذف (صاحب الإعلان أو أدمن)",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/announcements/{{announcement_id}}", "host": ["{{base_url}}"], "path": ["announcements", "{{announcement_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "المواد — لائحة كاملة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/subjects", "host": ["{{base_url}}"], "path": ["subjects"] }
+          },
+          "response": []
+        },
+        {
+          "name": "المواد — تفاصيل مادة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/subjects/{{subject_id}}", "host": ["{{base_url}}"], "path": ["subjects", "{{subject_id}}"] }
+          },
+          "response": []
+        },
+        {
+          "name": "المكتبة — تصنيفات",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/library/categories", "host": ["{{base_url}}"], "path": ["library", "categories"] }
+          },
+          "response": []
+        },
+        {
+          "name": "المكتبة — ملفات مادة (فلترة اختيارية type=pdf|video)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/subjects/{{subject_id}}/library",
+              "host": ["{{base_url}}"],
+              "path": ["subjects", "{{subject_id}}", "library"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "الإشعارات — لائحتي",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/notifications", "host": ["{{base_url}}"], "path": ["notifications"] }
+          },
+          "response": []
+        },
+        {
+          "name": "الإشعارات — تعليم كمقروء",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}", "read"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "السنة الدراسية النشطة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/years/active", "host": ["{{base_url}}"], "path": ["years", "active"] }
+          },
+          "response": []
+        },
+        {
+          "name": "شعب سنة دراسية",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/years/{{year_id}}/sections", "host": ["{{base_url}}"], "path": ["years", "{{year_id}}", "sections"] }
+          },
+          "response": []
+        },
+        {
+          "name": "امتحانات سنة دراسية",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/years/{{year_id}}/exams", "host": ["{{base_url}}"], "path": ["years", "{{year_id}}", "exams"] }
+          },
+          "response": []
+        },
+        {
+          "name": "أفضل 5 طلاب بسنة دراسية",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/years/{{year_id}}/top-students", "host": ["{{base_url}}"], "path": ["years", "{{year_id}}", "top-students"] }
+          },
+          "response": []
+        },
+        {
+          "name": "بحث (طالب/أستاذ بالاسم)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/search", "host": ["{{base_url}}"], "path": ["search"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"يوسف\",\n  \"year_id\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "شعب صف دراسي (Grade)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/grades/{{class_grade_id}}/sections", "host": ["{{base_url}}"], "path": ["grades", "{{class_grade_id}}", "sections"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2) الشعبة (Section) — طالب/أستاذ/أهل/موجه حسب صلاحياتهم",
+      "item": [
+        {
+          "name": "طلاب الشعبة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/students", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "students"] },
+            "description": "403 إذا الشعبة مش شعبتك (طالب/أهل/أستاذ/موجه) — الأدمن بيشوف الكل."
+          },
+          "response": []
+        },
+        {
+          "name": "مواد الشعبة + أساتذتها",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/subjects", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "subjects"] }
+          },
+          "response": []
+        },
+        {
+          "name": "جدول دوام الشعبة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/schedule", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "schedule"] }
+          },
+          "response": []
+        },
+        {
+          "name": "جدول امتحانات الشعبة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/exams", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "exams"] }
+          },
+          "response": []
+        },
+        {
+          "name": "سجل حضور الشعبة (كل الطلاب)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/attendance", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "attendance"] }
+          },
+          "response": []
+        },
+        {
+          "name": "واجبات الشعبة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/homeworks", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "homeworks"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3) الطالب",
+      "item": [
+        {
+          "name": "بروفايل طالب كامل (علامات، تقييمات، حضور)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/students/{{student_id}}", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}"] },
+            "description": "متاح للطالب نفسو، ولي أمرو، أستاذ يدرّس شعبتو، أو الأدمن بس."
+          },
+          "response": []
+        },
+        {
+          "name": "سجل حضور الطالب + إحصائيات",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/students/{{student_id}}/attendance", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}", "attendance"] }
+          },
+          "response": []
+        },
+        {
+          "name": "غيابات الطالب + حالة التبرير",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/students/{{student_id}}/absences", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}", "absences"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4) الأستاذ",
+      "item": [
+        {
+          "name": "لائحة كل الأساتذة",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/teachers", "host": ["{{base_url}}"], "path": ["teachers"] }
+          },
+          "response": []
+        },
+        {
+          "name": "شعب أستاذ معيّن",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/teachers/{{teacher_id}}/sections", "host": ["{{base_url}}"], "path": ["teachers", "{{teacher_id}}", "sections"] }
+          },
+          "response": []
+        },
+        {
+          "name": "جدول دوامي (الأستاذ الحالي)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/teacher/schedule", "host": ["{{base_url}}"], "path": ["teacher", "schedule"] }
+          },
+          "response": []
+        },
+        {
+          "name": "مراسلة ولي أمر طالب",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/students/{{student_id}}/teacher-message", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}", "teacher-message"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"head\": \"ملاحظة حول أداء الطالب\",\n  \"content\": \"الطالب بحاجة لمتابعة إضافية.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "بيشتغل بس إذا الأستاذ يدرّس شعبة هاد الطالب."
+          },
+          "response": []
+        },
+        {
+          "name": "رسائل الإدارة الواصلة إلي",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/teacher/messages", "host": ["{{base_url}}"], "path": ["teacher", "messages"] }
+          },
+          "response": []
+        },
+        {
+          "name": "تعليم رسالة الإدارة كمقروءة",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/teacher/messages/{{message_id}}/read", "host": ["{{base_url}}"], "path": ["teacher", "messages", "{{message_id}}", "read"] }
+          },
+          "response": []
+        },
+        {
+          "name": "مراسلة الإدارة",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/teacher/message-admin", "host": ["{{base_url}}"], "path": ["teacher", "message-admin"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"head\": \"استفسار\",\n  \"content\": \"هل يمكن تأجيل الاجتماع؟\"\n}",
+              "options": { "raw": { "language": "json" } }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "إضافة واجب",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/homeworks", "host": ["{{base_url}}"], "path": ["homeworks"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assignment_id\": 1,\n  \"title\": \"تمارين الوحدة الأولى\",\n  \"description\": \"حل التمارين 1-10 صفحة 20\",\n  \"due_date\": \"2026-08-05\",\n  \"priority\": \"normal\"\n}",
+              "options": { "raw": { "language": "json" } },
+              "description": "priority اختياري: normal | medium | urgent (افتراضي normal)."
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "تعديل واجب",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/homeworks/{{homework_id}}", "host": ["{{base_url}}"], "path": ["homeworks", "{{homework_id}}"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"due_date\": \"2026-08-10\",\n  \"priority\": \"urgent\"\n}",
+              "options": { "raw": { "language": "json" } },
+              "description": "كل الحقول اختيارية (sometimes) — ابعت بس يلي بدك تعدلو. priority: normal | medium | urgent."
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "رصد علامات واجب",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/homeworks/{{homework_id}}/grades", "host": ["{{base_url}}"], "path": ["homeworks", "{{homework_id}}", "grades"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grades\": {\n    \"1\": 85,\n    \"2\": 90\n  }\n}",
+              "options": { "raw": { "language": "json" } },
+              "description": "مفاتيح object الـ grades هي student_id، والقيمة هي العلامة."
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "حذف واجب",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/homeworks/{{homework_id}}", "host": ["{{base_url}}"], "path": ["homeworks", "{{homework_id}}"] }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5) ولي الأمر",
+      "item": [
+        {
+          "name": "أولادي",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/parent/children", "host": ["{{base_url}}"], "path": ["parent", "children"] }
+          },
+          "response": []
+        },
+        {
+          "name": "الرسائل الواصلة إلي",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/parent/messages", "host": ["{{base_url}}"], "path": ["parent", "messages"] },
+            "description": "بترجع sender_type لكل رسالة: admin أو teacher."
+          },
+          "response": []
+        },
+        {
+          "name": "تعليم رسالة كمقروءة",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/parent/messages/{{message_id}}/read", "host": ["{{base_url}}"], "path": ["parent", "messages", "{{message_id}}", "read"] }
+          },
+          "response": []
+        },
+        {
+          "name": "تأكيد الاطلاع عالعلامة",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/grades/{{student_grade_id}}/acknowledge", "host": ["{{base_url}}"], "path": ["grades", "{{student_grade_id}}", "acknowledge"] },
+            "description": "student_grade_id هون هو id السطر بجدول StudentGrade — بتلاقيه بحقل grade_id ضمن marks_history يلي بيرجعو GET /students/{id}."
+          },
+          "response": []
+        },
+        {
+          "name": "تقديم تبرير غياب",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/attendance/{{attendance_id}}/justification", "host": ["{{base_url}}"], "path": ["attendance", "{{attendance_id}}", "justification"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"الطالب كان مريض وتم إحضار تقرير طبي.\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "attendance_id بتلاقيه بحقل attendance_id ضمن الرد تبع GET /students/{id}/absences. لازم تكون حالة الحضور absent أو late، وما يكون في تبرير مقدّم أصلاً."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6) الموجه",
+      "item": [
+        {
+          "name": "تسجيل حضور طلاب شعبة (يوم كامل)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/sections/{{section_id}}/attendance", "host": ["{{base_url}}"], "path": ["sections", "{{section_id}}", "attendance"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2026-07-29\",\n  \"records\": {\n    \"1\": \"present\",\n    \"2\": \"absent\",\n    \"3\": \"late\"\n  },\n  \"supervisor_id\": {{supervisor_id}}\n}",
+              "options": { "raw": { "language": "json" } },
+              "description": "مفاتيح records هي student_id، والقيمة present/absent/late. الموجه لازم يمرر supervisor_id تبع حسابو، وما فيه يسجل حضور لشعبة برّا صفو."
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "تسجيل حضور أستاذ بحصة معينة",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Accept", "value": "application/json" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/periods/{{period_id}}/attendance", "host": ["{{base_url}}"], "path": ["periods", "{{period_id}}", "attendance"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_date\": \"2026-07-29\",\n  \"status\": \"completed\",\n  \"supervisor_id\": {{supervisor_id}}\n}",
+              "options": { "raw": { "language": "json" } },
+              "description": "status: completed | absent | cancelled."
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
