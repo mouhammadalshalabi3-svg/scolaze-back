@@ -26,6 +26,11 @@ use App\Models\PeriodAttendance;
 use App\Models\Attendance;
 use App\Models\Exam;
 use App\Models\Salary;
+use App\Models\Homework;
+use App\Models\HomeworkGrade;
+use App\Models\AdminMessage;
+use App\Models\AbsenceJustification;
+use App\Models\StaffAttendance;
 
 class DatabaseSeeder extends Seeder
 {
@@ -450,6 +455,127 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('✅ السيدر خلص بنجاح: صفين (عاشر/حادي عشر)، 4 شعب، 60 طالب، 8 أساتذة، مشرفين، مواد، امتحانات، علامات، تقييمات، مكتبة، إعلانات، جداول، حضور، ورواتب.');
+        // ─────────────────────────────────────────
+        // 14) الواجبات (Homework) + علامات الواجبات (HomeworkGrade)
+        // ─────────────────────────────────────────
+        $studentsBySection = collect($allStudents)->groupBy(fn($e) => $e['student']->section_id);
+
+        $homeworkTitles = [
+            'تمارين الوحدة الأولى',
+            'حل أسئلة الكتاب صفحة 20',
+            'بحث قصير عن الموضوع المطروح',
+            'تحضير الدرس القادم',
+        ];
+
+        foreach ($assignments as $assignment) {
+            foreach (range(1, 2) as $i) {
+                $homework = Homework::create([
+                    'title'         => collect($homeworkTitles)->random(),
+                    'description'   => 'المطلوب تسليم الواجب قبل الموعد المحدد.',
+                    'due_date'      => now()->addDays(rand(2, 10))->toDateString(),
+                    'assignment_id' => $assignment->id,
+                ]);
+
+                $sectionStudents = $studentsBySection[$assignment->section_id] ?? collect();
+
+                foreach ($sectionStudents as $entry) {
+                    // نترك حوالي ثلث الطلاب بلا علامة لسا (واجب لسا ما تصحح)
+                    if (rand(1, 3) === 1) {
+                        continue;
+                    }
+
+                    HomeworkGrade::create([
+                        'homework_id' => $homework->id,
+                        'student_id'  => $entry['student']->id,
+                        'mark'        => rand(60, 100),
+                    ]);
+                }
+            }
+        }
+
+        // ─────────────────────────────────────────
+        // 15) رسائل الإدارة (AdminMessage) — أدمن↔أستاذ، أدمن↔أهل، أستاذ↔أهل
+        // ─────────────────────────────────────────
+        $admin        = Admin::where('user_id', $adminUser->id)->first();
+        $firstTeacher = collect($teachers)->flatten()->first();
+        $firstParent  = $allStudents[0]['student']->parent;
+
+        AdminMessage::create([
+            'title'       => 'تذكير باجتماع الهيئة التدريسية',
+            'message'     => 'الرجاء الحضور بالموعد المحدد يوم الأحد.',
+            'is_read'     => false,
+            'admin_id'    => $admin->id,
+            'teacher_id'  => $firstTeacher->id,
+            'parent_id'   => null,
+            'sender_role' => 'admin',
+        ]);
+
+        AdminMessage::create([
+            'title'       => 'استفسار من أستاذ الرياضيات',
+            'message'     => 'هل يمكن تأجيل موعد الاجتماع نصف ساعة؟',
+            'is_read'     => false,
+            'admin_id'    => $admin->id,
+            'teacher_id'  => $firstTeacher->id,
+            'parent_id'   => null,
+            'sender_role' => 'teacher',
+        ]);
+
+        AdminMessage::create([
+            'title'       => 'إشعار بخصوص الرسوم المدرسية',
+            'message'     => 'يرجى تسديد القسط المتبقي قبل نهاية الشهر.',
+            'is_read'     => false,
+            'admin_id'    => $admin->id,
+            'teacher_id'  => null,
+            'parent_id'   => $firstParent->id,
+            'sender_role' => 'admin',
+        ]);
+
+        AdminMessage::create([
+            'title'       => 'ملاحظة حول أداء الطالب',
+            'message'     => 'ابنكم بحاجة لمتابعة إضافية بمادة الرياضيات هالفترة.',
+            'is_read'     => false,
+            'admin_id'    => null,
+            'teacher_id'  => $firstTeacher->id,
+            'parent_id'   => $firstParent->id,
+            'sender_role' => 'teacher',
+        ]);
+
+        // ─────────────────────────────────────────
+        // 16) تبريرات الغياب (AbsenceJustification) — عالغيابات/التأخيرات الموجودة
+        // ─────────────────────────────────────────
+        $absentRecords = Attendance::whereIn('status', ['absent', 'late'])
+            ->with('student')
+            ->inRandomOrder()
+            ->take(15)
+            ->get();
+
+        $justificationStatuses = ['pending', 'approved', 'rejected'];
+
+        foreach ($absentRecords as $index => $attendance) {
+            AbsenceJustification::create([
+                'reason'        => 'الطالب كان مريض وتم إحضار تقرير طبي.',
+                'status'        => $justificationStatuses[$index % count($justificationStatuses)],
+                'attendance_id' => $attendance->id,
+                'parent_id'     => $attendance->student->parent_id,
+            ]);
+        }
+
+        // ─────────────────────────────────────────
+        // 17) حضور الطاقم (StaffAttendance) — آخر 10 أيام، تسجيل الأدمن
+        // ─────────────────────────────────────────
+        $staffUsers = User::whereIn('role', ['admin', 'teacher', 'supervisor'])->get();
+
+        foreach ($staffUsers as $staffUser) {
+            foreach (range(1, 10) as $dayOffset) {
+                StaffAttendance::create([
+                    'attendance_date'      => now()->subDays($dayOffset)->toDateString(),
+                    'status'               => collect(['present', 'present', 'present', 'absent', 'late'])->random(),
+                    'user_id'              => $staffUser->id,
+                    'recorded_by_admin_id' => $admin->id,
+                ]);
+            }
+        }
+
+        $this->command->info('✅ السيدر خلص بنجاح: صفين (عاشر/حادي عشر)، 4 شعب، 60 طالب، 8 أساتذة، مشرفين، مواد، امتحانات، علامات، تقييمات، مكتبة، إعلانات، جداول، حضور، رواتب، واجبات، رسائل، تبريرات غياب، وحضور طاقم.');
     }
 }
