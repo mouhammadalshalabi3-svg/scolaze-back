@@ -45,20 +45,14 @@ class AuthController extends Controller
     public function parentLogin(Request $request)
 {
     $request->validate([
-        'student_academic_number' => 'required|string',
-        'password'                => 'required|string',
+        'password' => 'required|string',
     ]);
 
-    $student = \App\Models\Student::where('academic_number', $request->student_academic_number)->first();
+    $user = User::where('role', 'parent')
+        ->get()
+        ->first(fn ($candidate) => Hash::check($request->password, $candidate->password));
 
-    if (!$student || !$student->parent_id) {
-        return response()->json(['message' => 'بيانات غير صحيحة'], 401);
-    }
-
-    $parent = $student->parent()->first();
-    $user   = $parent?->user;
-
-    if (!$user || !Hash::check($request->password, $user->password)) {
+    if (!$user) {
         return response()->json(['message' => 'بيانات غير صحيحة'], 401);
     }
 
