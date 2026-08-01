@@ -13,10 +13,11 @@ class StudentGrade extends Model
     'parent_viewed',
     'exam_id',
     'subject_id',
-    'student_id'
+    'student_id',
+    'type'
 ];
 
-    
+
 
     public function exam()
     {
