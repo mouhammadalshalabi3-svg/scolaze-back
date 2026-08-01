@@ -58,4 +58,27 @@ class SupervisorController extends Controller
         ],
     ], 201);
 }
+
+    // GET /supervisor/staff — لائحة الطاقم (أدمن، أساتذة، موجهين) لتسجيل حضورهم
+    public function staff()
+    {
+        $users = User::whereIn('role', ['admin', 'teacher', 'supervisor'])
+            ->with(['admin', 'teacher', 'supervisor'])
+            ->get()
+            ->map(function ($u) {
+                $profile = $u->admin ?? $u->teacher ?? $u->supervisor;
+                $name = $u->role === 'admin'
+                    ? $profile?->fullname
+                    : trim(($profile?->first_name ?? '') . ' ' . ($profile?->last_name ?? ''));
+
+                return [
+                    'user_id' => $u->id,
+                    'role'    => $u->role,
+                    'name'    => $name,
+                    'photo'   => $profile?->photo ?? null,
+                ];
+            });
+
+        return response()->json(['staff' => $users]);
+    }
 }
