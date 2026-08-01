@@ -7,13 +7,18 @@ use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\Section;
+use App\Services\AccessControlService;
 use App\Services\NotificationService;
 class AttendanceController extends Controller
 {
-    
+
     public function getSectionAttendance($section_id)
     {
         $section = Section::findOrFail($section_id);
+
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
 
         $attendance = Attendance::whereHas('student', fn($q) =>
                 $q->where('section_id', $section_id))->with('student')->orderBy('attendance_date', 'desc')->get()
@@ -86,6 +91,10 @@ class AttendanceController extends Controller
     public function getStudentAttendance($student_id)
     {
         $student = Student::findOrFail($student_id);
+
+        if (!AccessControlService::canAccessStudent(auth()->user(), $student)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاد الطالب'], 403);
+        }
 
         $records = Attendance::where('student_id', $student_id)->orderBy('attendance_date', 'desc')->get();
         $total   = $records->count();

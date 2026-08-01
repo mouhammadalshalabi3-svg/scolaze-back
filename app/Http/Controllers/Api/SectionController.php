@@ -3,19 +3,26 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Exam;
 use App\Models\TeachingAssignment;
 use App\Models\Period;
 use App\Models\Section;
 use App\Models\StudentGrade;
+use App\Services\AccessControlService;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 class SectionController extends Controller
 {
-  
+
     public function getStudents(Request $request, $section_id)
     {
         $section = Section::findOrFail($section_id);
+
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
+
         $sortBy  = $request->get('sort_by', 'name');
 
         $students = $section->students()->with('grades')->get()
@@ -43,6 +50,10 @@ class SectionController extends Controller
     {
         $section = Section::findOrFail($section_id);
 
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
+
         $assignments = $section->assignments()->with('subject', 'teacher')->get()
             ->map(fn($a) => [
                 'subject_id'   => $a->subject->id,             
@@ -64,6 +75,10 @@ class SectionController extends Controller
     public function getSchedule($section_id)
     {
         $section = Section::findOrFail($section_id);
+
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
 
         $assignmentIds = TeachingAssignment::where('section_id', $section_id)->pluck('id');
         $periods = Period::whereIn('assignment_id', $assignmentIds)
@@ -87,7 +102,33 @@ class SectionController extends Controller
         ]);
     }
 
-    
+    public function getExams($section_id)
+    {
+        $section = Section::findOrFail($section_id);
+
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
+
+        $exams = Exam::where('section_id', $section_id)
+            ->with('subject')
+            ->orderBy('exam_date')
+            ->get()
+            ->map(fn($e) => [
+                'exam_id'    => $e->id,
+                'exam_type'  => $e->exam_type,
+                'exam_date'  => $e->exam_date,
+                'total_mark' => $e->total_mark,
+                'subject'    => $e->subject->name,
+            ]);
+
+        return response()->json([
+            'section' => $section->name,
+            'exams'   => $exams,
+        ]);
+    }
+
+
     public function updateSchedule(Request $request, $section_id)
     {
         Section::findOrFail($section_id);
