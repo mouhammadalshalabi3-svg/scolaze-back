@@ -45,7 +45,14 @@ class StudentApiController extends Controller
     ]);
 
     // 2) حساب الأهل (بلا username، فقط باسورد)
-    $parentPassword = Str::random(8);
+    // لازم الباسورد يكون فريد بما إنو هوّ الوحيد يلي بيميّز حساب الأهل عند تسجيل الدخول
+    do {
+        $parentPassword = Str::random(8);
+    } while (
+        User::where('role', 'parent')
+            ->get()
+            ->contains(fn ($candidate) => \Illuminate\Support\Facades\Hash::check($parentPassword, $candidate->password))
+    );
 
     $parentUser = User::create([
         'username' => null,
@@ -90,10 +97,7 @@ class StudentApiController extends Controller
         'credentials' => [
             'student_username' => $studentUsername,
             'student_password' => $studentPassword,
-            'parent_login'      => [
-                'student_academic_number' => $student->academic_number,
-                'parent_password'         => $parentPassword,
-            ],
+            'parent_password'  => $parentPassword,
         ],
     ], 201);
 }
@@ -122,12 +126,14 @@ class StudentApiController extends Controller
         $presentDays = $student->attendance->where('status', 'present')->count();
         $absentDays  = $totalDays - $presentDays;
  $marksHistory = $student->grades->map(fn($g) => [
-    'subject'    => $g->exam->subject->name ?? $g->subject->name ?? null,
-    'type'       => $g->type ?? 'main',
-    'exam_type'  => $g->exam->exam_type ?? null,
-    'exam_date'  => $g->exam->exam_date ?? null,
-    'mark'       => $g->mark,
-    'total_mark' => $g->exam->total_mark ?? 100,
+    'grade_id'      => $g->id,
+    'subject'       => $g->exam->subject->name ?? $g->subject->name ?? null,
+    'type'          => $g->type ?? 'main',
+    'exam_type'     => $g->exam->exam_type ?? null,
+    'exam_date'     => $g->exam->exam_date ?? null,
+    'mark'          => $g->mark,
+    'total_mark'    => $g->exam->total_mark ?? 100,
+    'parent_viewed' => $g->parent_viewed,
 ]);
 
 $evaluations = $student->evaluations->map(fn($e) => [
@@ -177,15 +183,16 @@ $evaluations = $student->evaluations->map(fn($e) => [
         $admin   = Admin::where('user_id', auth()->id())->firstOrFail();
  
         AdminMessage::create([
-            'title'      => $request->head,
-            'message'    => $request->content,
-            'is_read'    => false,
-            'admin_id'   => $admin->id,
-            'parent_id'  => $student->parent_id,
-            'teacher_id' => null,
+            'title'       => $request->head,
+            'message'     => $request->input('content'),
+            'is_read'     => false,
+            'admin_id'    => $admin->id,
+            'parent_id'   => $student->parent_id,
+            'teacher_id'  => null,
+            'sender_role' => 'admin',
         ]);
- 
-        NotificationService::send($student->parent->user_id, $request->head, $request->content, 'admin_message');
+
+        NotificationService::send($student->parent->user_id, $request->head, $request->input('content'), 'admin_message');
 
         return response()->json(['message' => 'تم إرسال الرسالة للأهل بنجاح']);
     }

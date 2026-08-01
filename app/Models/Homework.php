@@ -12,6 +12,7 @@ class Homework extends Model
         'title',
         'description',
         'due_date',
+        'priority',
         'assignment_id'
     ];
 

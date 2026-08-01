@@ -14,6 +14,7 @@ class AdminMessage extends Model
         'admin_id',
         'parent_id',
         'teacher_id',
+        'sender_role',
     ];
 
     protected $casts = [
