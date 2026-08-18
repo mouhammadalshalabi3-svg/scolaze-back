@@ -147,9 +147,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/sections/{section_id}/attendance', [AttendanceController::class, 'store']);
     Route::get('/students/{student_id}/attendance', [AttendanceController::class, 'getStudentAttendance']);
     // Period Attendance — الموجه يسجل حضور الأستاذ بالحصة
+    Route::get('/sections/{section_id}/period-attendance', [PeriodAttendanceController::class, 'sectionAttendance']);
     Route::post('/periods/{period_id}/attendance', [PeriodAttendanceController::class, 'store']);
     // Homework
     Route::get('/sections/{section_id}/homeworks',   [HomeworkController::class, 'index']);
+    Route::get('/students/{student_id}/homeworks', [HomeworkController::class, 'forStudent']);
     Route::post('/homeworks', [HomeworkController::class, 'store']);
     Route::put('/homeworks/{homework_id}', [HomeworkController::class, 'update']);
     Route::post('/homeworks/{homework_id}/grades', [HomeworkController::class, 'storeGrades']);
