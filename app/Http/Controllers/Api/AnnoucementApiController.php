@@ -15,7 +15,7 @@ class AnnoucementApiController extends Controller
     public function index()
     {
         $user = auth()->user();
-        $ads  = Announcement::with('user')->get();
+        $ads  = Announcement::with('user.teacher', 'user.admin')->get();
 
         if ($user->role !== 'admin') {
             $allowedRoles = collect(['all']);
@@ -60,6 +60,7 @@ class AnnoucementApiController extends Controller
             'type'        => $ad->type,
             'created_at'  => $ad->created_at,
             'is_mine'     => $ad->user_id === $user->id,
+            'posted_by'   => $this->posterName($ad->user),
         ]));
 
         return response()->json(['ads' => $grouped]);
@@ -130,6 +131,23 @@ $userIds = $this->resolveTargetUserIds($request->target_role);
             'message' => 'تم تعديل الإعلان بنجاح',
             'ad'      => $announcement,
         ]);
+    }
+
+    private function posterName(?User $poster): ?string
+    {
+        if (!$poster) {
+            return null;
+        }
+
+        if ($poster->role === 'admin') {
+            return 'الإدارة';
+        }
+
+        if ($poster->role === 'teacher' && $poster->teacher) {
+            return trim($poster->teacher->first_name . ' ' . $poster->teacher->last_name);
+        }
+
+        return null;
     }
 
     private function gradeIdForOrdinal(int $index)
