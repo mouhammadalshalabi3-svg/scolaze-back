@@ -82,7 +82,7 @@ class DatabaseSeeder extends Seeder
         // ─────────────────────────────────────────
         // 4) المواد (كل صف نسخته الخاصة)
         // ─────────────────────────────────────────
-        $subjectNames = ['الرياضيات', 'الفيزياء', 'اللغة العربية', 'اللغة الإنكليزية'];
+        $subjectNames = ['Mathematics', 'Physics', 'Arabic', 'English'];
         $subjects = []; // subjects[grade_id][subject_name] = Subject
 
         foreach ([$gradeTenth, $gradeEleventh] as $grade) {
@@ -99,10 +99,10 @@ class DatabaseSeeder extends Seeder
         // 5) الأساتذة (أستاذ لكل مادة، مربوط بشعبتي الصفين للمادة نفسها)
         // ─────────────────────────────────────────
         $teacherNamesBySubject = [
-            'الرياضيات'         => ['أحمد', 'خالد'],
-            'الفيزياء'          => ['سارة', 'ريم'],
-            'اللغة العربية'     => ['محمد', 'ليلى'],
-            'اللغة الإنكليزية'  => ['نور', 'يوسف'],
+            'Mathematics' => ['أحمد', 'خالد'],
+            'Physics'     => ['سارة', 'ريم'],
+            'Arabic'      => ['محمد', 'ليلى'],
+            'English'     => ['نور', 'يوسف'],
         ];
 
         $teachers = []; // teachers[subject_name] = [Teacher, Teacher]
