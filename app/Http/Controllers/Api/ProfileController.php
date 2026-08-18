@@ -12,8 +12,9 @@ class ProfileController extends Controller
         $user = auth()->user();
 
         return response()->json([
-            'role'    => $user->role,
-            'profile' => match ($user->role) {
+            'role'        => $user->role,
+            'server_date' => now()->toDateString(),
+            'profile'     => match ($user->role) {
                 'admin'      => $this->adminProfile($user),
                 'teacher'    => $this->teacherProfile($user),
                 'student'    => $this->studentProfile($user),
