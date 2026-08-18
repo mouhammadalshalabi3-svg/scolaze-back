@@ -93,7 +93,7 @@
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
             "url": { "raw": "{{base_url}}/me", "host": ["{{base_url}}"], "path": ["me"] },
-            "description": "بيرجع البروفايل الكامل حسب دور المستخدم (طالب/أستاذ/أهل/موجه/أدمن) — اسم، صورة، صف/شعبة، أولاد (للأهل)، إلخ."
+            "description": "بيرجع البروفايل الكامل حسب دور المستخدم (طالب/أستاذ/أهل/موجه/أدمن) — اسم، صورة، صف/شعبة، أولاد (للأهل)، إلخ. كمان بيرجع server_date (تاريخ اليوم من السيرفر)."
           },
           "response": []
         }
@@ -107,7 +107,8 @@
           "request": {
             "method": "GET",
             "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": { "raw": "{{base_url}}/Annoucements", "host": ["{{base_url}}"], "path": ["Annoucements"] }
+            "url": { "raw": "{{base_url}}/Annoucements", "host": ["{{base_url}}"], "path": ["Annoucements"] },
+            "description": "كل إعلان معو posted_by (اسم الأستاذ أو \"الإدارة\") — بما إنو أكثر من أستاذ والإدارة ممكن ينشروا إعلانات."
           },
           "response": []
         },
@@ -371,6 +372,16 @@
             "url": { "raw": "{{base_url}}/students/{{student_id}}/absences", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}", "absences"] }
           },
           "response": []
+        },
+        {
+          "name": "واجبات الطالب (مباشرة بالـ student_id)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/students/{{student_id}}/homeworks", "host": ["{{base_url}}"], "path": ["students", "{{student_id}}", "homeworks"] },
+            "description": "نفس واجبات GET /sections/{id}/homeworks بس مربوطة مباشرة بـ student_id (بلا ما تحتاج تجيب section_id أول)، وكل واجب معو my_mark — علامة هاد الطالب فيه لو انرصدت."
+          },
+          "response": []
         }
       ]
     },
@@ -586,6 +597,21 @@
     {
       "name": "6) الموجه",
       "item": [
+        {
+          "name": "أسماء الأساتذة وحضورهم بحصص اليوم (شعبة معينة)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": {
+              "raw": "{{base_url}}/sections/{{section_id}}/period-attendance?date=2026-08-18",
+              "host": ["{{base_url}}"],
+              "path": ["sections", "{{section_id}}", "period-attendance"],
+              "query": [{ "key": "date", "value": "2026-08-18" }]
+            },
+            "description": "بترجع كل حصص هاد اليوم بالشعبة (اسم الأستاذ + المادة + الحصة) مع status الحضور لو انسجل، أو null لو لسا. استخدمها قبل ما تنادي POST /periods/{id}/attendance حتى تعرف شو الحصص المطلوب تسجيل حضورها."
+          },
+          "response": []
+        },
         {
           "name": "تسجيل حضور طلاب شعبة (يوم كامل)",
           "request": {
