@@ -7,11 +7,41 @@ use Illuminate\Http\Request;
 use App\Models\Homework;
 use App\Models\HomeworkGrade;
 use App\Models\Section;
+use App\Models\Student;
 use App\Models\TeachingAssignment;
 use App\Services\AccessControlService;
 use App\Services\NotificationService;
 class HomeworkController extends Controller
 {
+
+    // GET /students/{student_id}/homeworks — واجبات شعبة الطالب، مع علامته هو إذا رصدت
+    public function forStudent($student_id)
+    {
+        $student = Student::findOrFail($student_id);
+
+        if (!AccessControlService::canAccessStudent(auth()->user(), $student)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاد الطالب'], 403);
+        }
+
+        $assignmentIds = TeachingAssignment::where('section_id', $student->section_id)->pluck('id');
+
+        $homeworks = Homework::whereIn('assignment_id', $assignmentIds)
+            ->with(['teachingAssignment.subject', 'teachingAssignment.teacher', 'grades' => fn($q) => $q->where('student_id', $student_id)])
+            ->get()
+            ->map(fn($h) => [
+                'homework_id' => $h->id,
+                'title'       => $h->title,
+                'description' => $h->description,
+                'due_date'    => $h->due_date,
+                'priority'    => $h->priority,
+                'subject'     => $h->teachingAssignment->subject->name,
+                'teacher'     => $h->teachingAssignment->teacher->first_name . ' ' .
+                                 $h->teachingAssignment->teacher->last_name,
+                'my_mark'     => $h->grades->first()?->mark,
+            ]);
+
+        return response()->json(['homeworks' => $homeworks]);
+    }
 
     public function index($section_id)
     {
