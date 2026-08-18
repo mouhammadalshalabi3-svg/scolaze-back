@@ -6,10 +6,60 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\PeriodAttendance;
 use App\Models\Period;
+use App\Models\Section;
 use App\Models\Teacher;
+use App\Models\TeachingAssignment;
+use App\Services\AccessControlService;
+use Carbon\Carbon;
 
 class PeriodAttendanceController extends Controller
 {
+    // GET /sections/{section_id}/period-attendance?date=YYYY-MM-DD
+    // أسماء الأساتذة يلي إلهم حصص بهاد اليوم بالشعبة + حالة حضورهم (لو تسجلت)
+    public function sectionAttendance(Request $request, $section_id)
+    {
+        $request->validate([
+            'date' => 'required|date',
+        ]);
+
+        $section = Section::findOrFail($section_id);
+
+        if (!AccessControlService::canAccessSection(auth()->user(), $section)) {
+            return response()->json(['message' => 'غير مصرح لك بالاطلاع على بيانات هاي الشعبة'], 403);
+        }
+
+        $dayOfWeek = strtolower(Carbon::parse($request->date)->format('l'));
+
+        $assignmentIds = TeachingAssignment::where('section_id', $section_id)->pluck('id');
+
+        $periods = Period::whereIn('assignment_id', $assignmentIds)
+            ->where('day_of_week', $dayOfWeek)
+            ->with([
+                'assignment.teacher',
+                'assignment.subject',
+                'periodAttendances' => fn($q) => $q->where('session_date', $request->date),
+            ])
+            ->orderBy('period_number')
+            ->get()
+            ->map(fn($p) => [
+                'period_id'     => $p->id,
+                'period_number' => $p->period_number,
+                'start_time'    => $p->start_time,
+                'end_time'      => $p->end_time,
+                'subject'       => $p->assignment->subject->name,
+                'teacher_id'    => $p->assignment->teacher->id,
+                'teacher'       => trim($p->assignment->teacher->first_name . ' ' . $p->assignment->teacher->last_name),
+                'status'        => $p->periodAttendances->first()?->status,
+            ]);
+
+        return response()->json([
+            'section'     => $section->name,
+            'date'        => $request->date,
+            'day_of_week' => $dayOfWeek,
+            'periods'     => $periods,
+        ]);
+    }
+
     // POST /periods/{period_id}/attendance
     // الموجه يسجل حضور الأستاذ لحصة معينة بتاريخ معين
     public function store(Request $request, $period_id)
