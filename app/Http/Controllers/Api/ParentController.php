@@ -11,6 +11,7 @@ use App\Models\ParentModel;
 use App\Models\Student;
 use App\Models\StudentGrade;
 use App\Models\AdminMessage;
+use App\Models\Attendance;
 
 class ParentController extends Controller
 {
@@ -137,5 +138,62 @@ class ParentController extends Controller
         $grade->update(['parent_viewed' => true]);
 
         return response()->json(['message' => 'تم تأكيد الاطلاع على العلامة']);
+    }
+
+    // POST /parent-verification — الطالب (بتوكنو هو) بيتحقق من كلمة سر ولي أمرو
+    // لحتى يفتح "وضع الأهل" جوا تطبيقو، وبيرجع علامات وحضور الطالب نفسو
+    public function verifyParentAccess(Request $request)
+    {
+        $request->validate([
+            'parent_password' => 'required|string',
+        ]);
+
+        $user = auth()->user();
+
+        if ($user->role !== 'student' || !$user->student) {
+            return response()->json(['message' => 'غير مصرح لك'], 403);
+        }
+
+        $student = $user->student;
+        $parent  = $student->parent;
+
+        if (!$parent || !$parent->user) {
+            return response()->json(['message' => 'ما في ولي أمر مرتبط بهاد الطالب'], 422);
+        }
+
+        if (!Hash::check($request->parent_password, $parent->user->password)) {
+            return response()->json(['message' => 'كلمة سر ولي الأمر غير صحيحة'], 401);
+        }
+
+        $marks = StudentGrade::where('student_id', $student->id)
+            ->with('subject', 'exam.subject')
+            ->get()
+            ->map(fn($g) => [
+                'grade_id'      => $g->id,
+                'subject'       => $g->exam->subject->name ?? $g->subject->name ?? null,
+                'type'          => $g->type ?? 'main',
+                'exam_type'     => $g->exam->exam_type ?? null,
+                'exam_date'     => $g->exam->exam_date ?? null,
+                'mark'          => $g->mark,
+                'total_mark'    => $g->exam->total_mark ?? 100,
+                'parent_viewed' => $g->parent_viewed,
+            ]);
+
+        $records = Attendance::where('student_id', $student->id)->get();
+        $total   = $records->count();
+        $present = $records->where('status', 'present')->count();
+        $absent  = $records->where('status', 'absent')->count();
+        $late    = $records->where('status', 'late')->count();
+
+        return response()->json([
+            'marks'      => $marks,
+            'attendance' => [
+                'total'      => $total,
+                'present'    => $present,
+                'absent'     => $absent,
+                'late'       => $late,
+                'percentage' => $total > 0 ? round(($present / $total) * 100, 2) . '%' : '0%',
+            ],
+        ]);
     }
 }

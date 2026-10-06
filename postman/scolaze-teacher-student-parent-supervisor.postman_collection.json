@@ -479,9 +479,9 @@
             "url": { "raw": "{{base_url}}/homeworks", "host": ["{{base_url}}"], "path": ["homeworks"] },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"assignment_id\": 1,\n  \"title\": \"تمارين الوحدة الأولى\",\n  \"description\": \"حل التمارين 1-10 صفحة 20\",\n  \"due_date\": \"2026-08-05\",\n  \"priority\": \"normal\"\n}",
+              "raw": "{\n  \"section_id\": {{section_id}},\n  \"subject_id\": 1,\n  \"title\": \"تمارين الوحدة الأولى\",\n  \"description\": \"حل التمارين 1-10 صفحة 20\",\n  \"due_date\": \"2026-08-05\",\n  \"priority\": \"normal\"\n}",
               "options": { "raw": { "language": "json" } },
-              "description": "priority اختياري: normal | medium | urgent (افتراضي normal)."
+              "description": "section_id وsubject_id هني نفس القيم يلي طالعة من GET /teachers/{id}/sections أو GET /sections/{id}/subjects. priority اختياري: normal | medium | urgent (افتراضي normal)."
             }
           },
           "response": []

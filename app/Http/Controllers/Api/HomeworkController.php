@@ -43,6 +43,35 @@ class HomeworkController extends Controller
         return response()->json(['homeworks' => $homeworks]);
     }
 
+    // GET /teacher/homeworks — كل واجبات الأستاذ الحالي (توكنو) عبر كل شعبه ومواده
+    // فرق عن GET /sections/{id}/homeworks إنو هاد بيرجع واجباتو هو بس، مش واجبات كل أساتذة الشعبة
+    public function myHomeworks()
+    {
+        $teacher = auth()->user()->teacher;
+
+        if (!$teacher) {
+            return response()->json(['message' => 'غير مصرح لك'], 403);
+        }
+
+        $assignmentIds = $teacher->assignments()->pluck('id');
+
+        $homeworks = Homework::whereIn('assignment_id', $assignmentIds)
+            ->with('teachingAssignment.subject', 'teachingAssignment.section')
+            ->orderByDesc('due_date')
+            ->get()
+            ->map(fn($h) => [
+                'homework_id' => $h->id,
+                'title'       => $h->title,
+                'description' => $h->description,
+                'due_date'    => $h->due_date,
+                'priority'    => $h->priority,
+                'subject'     => $h->teachingAssignment->subject->name,
+                'section'     => $h->teachingAssignment->section->name,
+            ]);
+
+        return response()->json(['homeworks' => $homeworks]);
+    }
+
     public function index($section_id)
     {
         $section = Section::findOrFail($section_id);
@@ -66,29 +95,44 @@ class HomeworkController extends Controller
 
         return response()->json(['homeworks' => $homeworks]);
     }
+    // ★ عدّل (2026-08-19): صار يطلب section_id + subject_id بدل assignment_id —
+    // الفرونت ما لازم يعرف/يعرض assignment_id أصلاً، هو رقم داخلي بالباك اند بس.
+    // الأستاذ بيختار "المادة" و"الشعبة" (نفس القيم يلي طالعتلو من GET /teachers/{id}/sections
+    // أو GET /sections/{id}/subjects)، والباك اند هو يلي بيلاقي الـ assignment المطابق ويتحقق
+    // إنو هاد الأستاذ فعلاً معيّن يدرّس هاي المادة بهاي الشعبة.
     public function store(Request $request)
     {
         $request->validate([
-            'assignment_id' => 'required|exists:teaching_assignments,id',
-            'title'         => 'required|string',
-            'description'   => 'required|string',
-            'due_date'      => 'required|date',
-            'priority'      => 'nullable|in:normal,medium,urgent',
+            'section_id'  => 'required|exists:sections,id',
+            'subject_id'  => 'required|exists:subjects,id',
+            'title'       => 'required|string',
+            'description' => 'required|string',
+            'due_date'    => 'required|date',
+            'priority'    => 'nullable|in:normal,medium,urgent',
         ]);
-        $assignmentCheck = TeachingAssignment::findOrFail($request->assignment_id);
+
+        $assignment = TeachingAssignment::with('section.students.user')
+            ->where('section_id', $request->section_id)
+            ->where('subject_id', $request->subject_id)
+            ->first();
+
+        if (!$assignment) {
+            return response()->json(['message' => 'ما في أستاذ معيّن لهاي المادة بهاي الشعبة'], 422);
+        }
+
         $user = auth()->user();
-        if ($user->role !== 'admin' && $assignmentCheck->teacher_id !== $user->teacher?->id) {
+        if ($user->role !== 'admin' && $assignment->teacher_id !== $user->teacher?->id) {
             return response()->json(['message' => 'غير مصرح لك بإضافة واجب لهاد المادة'], 403);
         }
+
         $homework = Homework::create([
-            'assignment_id' => $request->assignment_id,
+            'assignment_id' => $assignment->id,
             'title'         => $request->title,
             'description'   => $request->description,
             'due_date'      => $request->due_date,
             'priority'      => $request->priority ?? 'normal',
         ]);
 
-        $assignment = TeachingAssignment::with('section.students.user')->findOrFail($request->assignment_id);
         $userIds = $assignment->section->students->pluck('user_id');
 
         NotificationService::sendToMany($userIds, 'واجب جديد: ' . $homework->title, $homework->description, 'homework');

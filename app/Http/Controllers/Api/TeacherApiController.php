@@ -12,9 +12,10 @@ use App\Models\Period;
 use App\Models\Student;
 use App\Services\NotificationService;
 use Illuminate\Support\Str;
+
 class TeacherApiController extends Controller
 {
-     public function index()
+    public function index()
     {
         $teachers = Teacher::with('user')->get()
             ->map(fn($t) => [
@@ -28,30 +29,30 @@ class TeacherApiController extends Controller
 
         return response()->json(['teachers' => $teachers]);
     }
-   
+
     // إضافة أستاذ جديد
     public function store(Request $request)
     {
-$request->validate([
-    'full_name'   => 'required|string',
-    'phone'       => 'required|string',
-    'email'       => 'nullable|email|unique:teachers,email',
-    'rate_per_lesson' => 'required|numeric',
-    'subject_id'  => 'nullable|exists:subjects,id',
-    'photo'       => 'nullable|image|max:2048',
-]);
+        $request->validate([
+            'full_name'   => 'required|string',
+            'phone'       => 'required|string',
+            'email'       => 'nullable|email|unique:teachers,email',
+            'rate_per_lesson' => 'required|numeric',
+            'subject_id'  => 'nullable|exists:subjects,id',
+            'photo'       => 'nullable|image|max:2048',
+        ]);
 
-[$firstName, $lastName] = array_pad(explode(' ', $request->full_name, 2), 2, '');
+        [$firstName, $lastName] = array_pad(explode(' ', $request->full_name, 2), 2, '');
         $photoPath = null;
         if ($request->hasFile('photo')) {
             $photoPath = $request->file('photo')->store('teachers', 'public');
         }
         do {
-    $username = 'tch_' . Str::lower($request->first_name) . rand(100, 999);
-} while (User::where('username', $username)->exists());
-$password = Str::random(8);
+            $username = 'tch_' . Str::lower($request->first_name) . rand(100, 999);
+        } while (User::where('username', $username)->exists());
+        $password = Str::random(8);
 
-       
+
         $user = User::create([
             'username' => $username,
             'password' => bcrypt($password),
@@ -59,28 +60,28 @@ $password = Str::random(8);
             'status'   => true,
         ]);
 
-     $teacher = Teacher::create([
-    'first_name'      => $firstName,
-    'last_name'       => $lastName,
-    'phone'           => $request->phone,
-    'email'           => $request->email,
-    'salary_type'     => 'per_session',
-    'rate_per_lesson' => $request->rate_per_lesson,
-    'subject_id'      => $request->subject_id,
-    'photo'           => $photoPath,
-    'user_id'         => $user->id,
-]);
+        $teacher = Teacher::create([
+            'first_name'      => $firstName,
+            'last_name'       => $lastName,
+            'phone'           => $request->phone,
+            'email'           => $request->email,
+            'salary_type'     => 'per_session',
+            'rate_per_lesson' => $request->rate_per_lesson,
+            'subject_id'      => $request->subject_id,
+            'photo'           => $photoPath,
+            'user_id'         => $user->id,
+        ]);
         return response()->json([
             'message' => 'تم إضافة الأستاذ بنجاح',
             'teacher' => [
-                    'teacher' => [
-                        'teacher_id' => $teacher->id,
-                        'name'       => $teacher->first_name . ' ' . $teacher->last_name,
-                    ],
-                    'credentials' => [
-                        'username' => $username,
-                        'password' => $password,
-                    ],
+                'teacher' => [
+                    'teacher_id' => $teacher->id,
+                    'name'       => $teacher->first_name . ' ' . $teacher->last_name,
+                ],
+                'credentials' => [
+                    'username' => $username,
+                    'password' => $password,
+                ],
             ],
         ], 201);
     }
@@ -92,10 +93,14 @@ $password = Str::random(8);
 
         $sections = $teacher->assignments()->with('section.academicYear', 'subject')->get()
             ->map(fn($a) => [
-                'section_id'   => $a->section->id,
-                'section_name' => $a->section->name,
-                'year'         => $a->section->academicYear->name,
-                'subject'      => $a->subject->name,
+                // ★ جديد (2026-08-19): assignment_id هو يلي لازم تبعتو بـ POST /homeworks
+                // (مو section_id) — لأنو هو التركيبة (أستاذ+مادة+شعبة) المحددة يلي الواجب تبعها.
+                'assignment_id' => $a->id,
+                'section_id'    => $a->section->id,
+                'section_name'  => $a->section->name,
+                'year'          => $a->section->academicYear->name,
+                'subject_id'    => $a->subject->id,
+                'subject'       => $a->subject->name,
             ]);
 
         return response()->json([
@@ -284,29 +289,29 @@ $password = Str::random(8);
         return response()->json(['message' => 'تم حذف الأستاذ بنجاح']);
     }
 
-    
+
     // مراسلة أستاذ
     public function content(Request $request, $teacher_id)
     {
-    $request->validate([
-        'head'    => 'required|string',
-        'content' => 'required|string',
-    ]);
+        $request->validate([
+            'head'    => 'required|string',
+            'content' => 'required|string',
+        ]);
 
-    $teacher = Teacher::findOrFail($teacher_id);
-    $admin   = Admin::where('user_id', auth()->id())->firstOrFail();
+        $teacher = Teacher::findOrFail($teacher_id);
+        $admin   = Admin::where('user_id', auth()->id())->firstOrFail();
 
-    AdminMessage::create([
-        'title'       => $request->head,
-        'message'     => $request->input('content'),
-        'is_read'     => false,
-        'admin_id'    => $admin->id,
-        'teacher_id'  => $teacher->id,
-        'parent_id'   => null,
-        'sender_role' => 'admin',
-    ]);
-    NotificationService::send($teacher->user_id, $request->head, $request->input('content'), 'admin_message');
+        AdminMessage::create([
+            'title'       => $request->head,
+            'message'     => $request->input('content'),
+            'is_read'     => false,
+            'admin_id'    => $admin->id,
+            'teacher_id'  => $teacher->id,
+            'parent_id'   => null,
+            'sender_role' => 'admin',
+        ]);
+        NotificationService::send($teacher->user_id, $request->head, $request->input('content'), 'admin_message');
 
-    return response()->json(['message' => 'تم إرسال الرسالة للأستاذ بنجاح']);
+        return response()->json(['message' => 'تم إرسال الرسالة للأستاذ بنجاح']);
     }
 }
